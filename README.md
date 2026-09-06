@@ -2,7 +2,7 @@
 
 Um treinador de SQL gamificado, no estilo "mapa de fases" de jogo retrô — para praticar de **SELECT básico** até **procedures, DDL, DML, DCL e TCL**, com correção automática, fila de revisão e efeitos sonoros 8-bit.
 
-**🎮 Jogue agora:** **[sql-dojo (Claude Artifact)](https://claude.ai/code/artifact/da0b2f31-eac6-4d82-a8e2-1e224eb60541)**
+**🎮 Jogue agora:** **[andressafan.github.io/sql-dojo](https://andressafan.github.io/sql-dojo/)** · versão original: [Claude Artifact](https://claude.ai/code/artifact/da0b2f31-eac6-4d82-a8e2-1e224eb60541)
 
 > Este projeto é uma página HTML única (`index.html`), sem dependências de build — pode ser aberta direto no navegador ou servida por qualquer host estático (inclusive GitHub Pages).
 
