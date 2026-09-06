@@ -1,0 +1,2117 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SQL Dojo</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Press+Start+2P&display=swap">
+<style>
+:root{
+  --bg:#EEF1EF; --surface:#FFFFFF; --surface-2:#E3E8E5; --border:#CCD4CF;
+  --ink:#16211D; --muted:#52625A; --faint:#7C8B83;
+  --accent:#C4712B; --accent-ink:#5C3410; --accent-soft:#F3DFC4;
+  --good:#2B8C6E; --good-soft:#DCEFE6; --bad:#C1443B; --bad-soft:#F6DEDB;
+  --shadow: 0 1px 2px rgba(20,30,25,.06), 0 8px 24px -12px rgba(20,30,25,.18);
+  --radius: 10px;
+  --pixel-font:"Press Start 2P","IBM Plex Mono",monospace;
+  --gold:#F5B325; --gold-ink:#5C3E05;
+  --hud-bg:#141A33; --hud-bg-2:#1D2547; --hud-border:#EFE6C8; --hud-text:#EFE6C8; --hud-muted:#B9C2E8;
+  --pixel-line:#14101F;
+  --pixel-shadow: rgba(0,0,0,.35);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#12161A; --surface:#1A1F25; --surface-2:#232933; --border:#333B45;
+    --ink:#E8EAEA; --muted:#9BA5AE; --faint:#6C7680;
+    --accent:#E0A339; --accent-ink:#2A1B04; --accent-soft:#3A2B10;
+    --good:#4FBF98; --good-soft:#163229; --bad:#E27168; --bad-soft:#3A1C1A;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 12px 28px -14px rgba(0,0,0,.55);
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#12161A; --surface:#1A1F25; --surface-2:#232933; --border:#333B45;
+  --ink:#E8EAEA; --muted:#9BA5AE; --faint:#6C7680;
+  --accent:#E0A339; --accent-ink:#2A1B04; --accent-soft:#3A2B10;
+  --good:#4FBF98; --good-soft:#163229; --bad:#E27168; --bad-soft:#3A1C1A;
+  --shadow: 0 1px 2px rgba(0,0,0,.3), 0 12px 28px -14px rgba(0,0,0,.55);
+}
+*{box-sizing:border-box;}
+body{background:var(--bg);color:var(--ink);font-family:"IBM Plex Sans",system-ui,-apple-system,Segoe UI,sans-serif;line-height:1.45;}
+h1,h2,h3,h4,h5{font-family:"IBM Plex Sans",system-ui,sans-serif;font-weight:700;letter-spacing:-.01em;text-wrap:balance;margin:0;}
+code,pre,textarea,.mono{font-family:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;}
+a{color:var(--accent);}
+button{font-family:inherit;cursor:pointer;}
+::selection{background:var(--accent-soft);color:var(--accent-ink);}
+
+.app{max-width:1320px;margin:0 auto;padding:20px 20px 60px;}
+
+.pixel-panel{background:var(--hud-bg);border:3px solid var(--hud-border);box-shadow:4px 4px 0 var(--pixel-shadow);}
+
+.hud{display:flex;align-items:center;gap:16px;padding:12px 16px;margin-bottom:6px;color:var(--hud-text);flex-wrap:wrap;}
+.hud-mid{max-width:100%;}
+.hud-face{width:44px;height:44px;background:var(--hud-bg-2);border:2px solid var(--hud-border);display:flex;align-items:center;justify-content:center;font-size:21px;flex-shrink:0;}
+.hud-mid{display:flex;flex-direction:column;gap:5px;min-width:0;}
+.hud-title{font-family:var(--pixel-font);font-size:13px;color:var(--gold);text-shadow:2px 2px 0 rgba(0,0,0,.4);margin:0;}
+.hud-world{font-family:var(--pixel-font);font-size:9.5px;letter-spacing:.03em;color:var(--hud-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.hud-level{font-family:var(--pixel-font);font-size:9px;color:var(--hud-text);}
+.hud-stats{display:flex;gap:16px;margin-left:auto;flex-wrap:wrap;}
+.hud-stat{display:flex;align-items:center;gap:6px;}
+.hud-stat b{font-family:var(--pixel-font);font-size:12px;color:var(--gold);font-variant-numeric:tabular-nums;}
+.hud-ic{font-size:15px;}
+.sound-btn{width:38px;height:38px;background:var(--hud-bg-2);border:2px solid var(--hud-border);color:var(--hud-text);font-size:15px;flex-shrink:0;}
+.sound-btn.muted{opacity:.45;}
+.tagline{color:var(--muted);font-size:12.5px;margin:0 4px 18px;}
+
+.layout{display:grid;grid-template-columns:270px 1fr;gap:18px;align-items:start;}
+@media (max-width:900px){.layout{grid-template-columns:1fr;}}
+
+.sidebar{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:10px;box-shadow:var(--shadow);position:sticky;top:16px;max-height:calc(100vh - 32px);overflow-y:auto;}
+.cat-header{display:flex;align-items:center;gap:8px;padding:7px 10px;margin:14px 0 8px;background:var(--hud-bg-2);border:2px solid var(--hud-border);color:var(--gold);}
+.cat-header span:last-child{font-family:var(--pixel-font);font-size:9px;letter-spacing:.02em;line-height:1.5;}
+.cat-header:first-child{margin-top:0;}
+.cat-header.locked{opacity:.4;}
+.topic-item{display:flex;align-items:center;gap:10px;padding:8px;cursor:pointer;border:2px solid transparent;margin-bottom:3px;}
+.topic-item:hover{background:var(--surface-2);}
+.topic-item.active{background:var(--accent-soft);border-color:var(--accent);}
+.topic-item.locked{opacity:.42;cursor:not-allowed;}
+.topic-num{width:24px;height:24px;background:var(--surface-2);border:2px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0;font-family:var(--pixel-font);}
+.topic-item.mastered .topic-num{background:var(--gold);border-color:var(--gold-ink);color:var(--gold-ink);}
+.topic-item.active .topic-num{background:var(--accent);border-color:var(--accent-ink);color:#fff;}
+.topic-text{flex:1;min-width:0;}
+.topic-text strong{display:block;font-size:12.5px;line-height:1.25;}
+.progress-bar{height:6px;background:var(--surface-2);border:1px solid var(--border);overflow:hidden;margin-top:5px;}
+.progress-fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--gold));}
+.topic-item.mastered .progress-fill{background:var(--good);}
+.progress-label{font-size:10px;color:var(--muted);font-family:"IBM Plex Mono",monospace;}
+.sidebar-foot{margin-top:12px;padding-top:12px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:8px;}
+.review-count{font-size:11.5px;color:var(--muted);text-align:center;}
+.reset-btn{width:100%;background:none;border:1px solid var(--border);color:var(--muted);border-radius:8px;padding:7px;font-size:12px;}
+.reset-btn:hover{border-color:var(--bad);color:var(--bad);}
+
+.main{display:flex;flex-direction:column;gap:16px;min-width:0;}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);}
+
+details.schema summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:8px;padding:14px 20px;font-weight:600;font-size:13.5px;}
+details.schema summary::-webkit-details-marker{display:none;}
+details.schema summary:before{content:"▸";color:var(--accent);transition:transform .15s;font-size:11px;}
+details.schema[open] summary:before{transform:rotate(90deg);}
+.schema-body{padding:0 20px 18px;display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;}
+.schema-tbl{border:1px solid var(--border);border-radius:8px;overflow:hidden;}
+.schema-tbl h4{background:var(--surface-2);padding:7px 10px;font-size:12.5px;font-family:"IBM Plex Mono",monospace;font-weight:600;}
+.schema-tbl ul{list-style:none;margin:0;padding:6px 10px 8px;font-size:12px;font-family:"IBM Plex Mono",monospace;color:var(--muted);}
+.schema-tbl li b{color:var(--ink);font-weight:500;}
+.schema-tbl li .pk{color:var(--accent);font-weight:600;}
+.data-toggle{font-size:11px;color:var(--accent);border:none;background:none;padding:6px 10px 8px;cursor:pointer;text-align:left;}
+.mini-tbl-wrap{overflow-x:auto;padding:0 10px 10px;}
+.mini-tbl{border-collapse:collapse;font-size:11px;width:100%;}
+.mini-tbl th,.mini-tbl td{border-bottom:1px solid var(--border);padding:3px 6px;text-align:left;white-space:nowrap;}
+.mini-tbl th{color:var(--muted);font-weight:500;}
+
+.q-head{display:flex;align-items:center;gap:8px;padding:14px 20px;border-bottom:1px solid var(--border);flex-wrap:wrap;}
+.badge{background:var(--surface-2);color:var(--muted);font-size:11px;padding:4px 10px;border-radius:99px;font-weight:600;letter-spacing:.02em;}
+.badge.cat{background:var(--surface-2);color:var(--ink);}
+.badge.topic{background:var(--accent-soft);color:var(--accent-ink);}
+.badge.review{background:var(--bad-soft);color:var(--bad);display:none;align-items:center;gap:4px;}
+.badge.review.show{display:inline-flex;}
+.q-head .progress-txt{margin-left:auto;font-size:12px;color:var(--muted);}
+.q-prompt{padding:18px 20px 6px;font-size:16.5px;line-height:1.5;text-wrap:balance;}
+.q-actions-row{padding:2px 20px 18px;display:flex;gap:14px;flex-wrap:wrap;}
+.link-btn{background:none;border:none;color:var(--accent);font-size:12.5px;font-weight:600;padding:0;}
+.link-btn:hover{text-decoration:underline;}
+.hint-box,.sol-box{margin:0 20px 16px;background:var(--surface-2);border-left:3px solid var(--accent);border-radius:6px;padding:10px 14px;font-size:13px;color:var(--muted);}
+.sol-box code{color:var(--ink);display:block;margin-top:4px;white-space:pre-wrap;}
+.seed-note{color:var(--muted);font-size:11.5px;display:block;margin-top:6px;}
+
+.summary-box{margin:0 20px 16px;background:var(--good-soft);border-left:3px solid var(--good);border-radius:6px;padding:12px 14px;font-size:13px;color:var(--ink);display:none;}
+.summary-box.show{display:block;}
+.summary-box b{display:block;margin-bottom:4px;color:var(--good);}
+
+.editor-wrap{padding:0 20px 16px;}
+textarea#sql-input{width:100%;min-height:120px;background:var(--surface-2);color:var(--ink);border:1px solid var(--border);border-radius:8px;padding:12px 14px;font-size:13.5px;resize:vertical;outline:none;}
+textarea#sql-input:focus{border-color:var(--accent);}
+.editor-actions{display:flex;gap:12px;padding:0 20px 20px;flex-wrap:wrap;}
+.btn{font-family:var(--pixel-font);font-size:10px;letter-spacing:.02em;line-height:1.6;padding:12px 16px;border:3px solid var(--pixel-line);border-radius:0;background:var(--surface-2);color:var(--ink);box-shadow:3px 3px 0 var(--pixel-shadow);transition:transform .05s,box-shadow .05s;}
+.btn:hover:not(:disabled){filter:brightness(1.06);}
+.btn:active:not(:disabled){transform:translate(2px,2px);box-shadow:1px 1px 0 var(--pixel-shadow);}
+.btn.primary{background:var(--accent);color:#fff;}
+.btn.next{background:var(--good);color:#fff;}
+.btn:disabled{opacity:.5;cursor:default;}
+
+.feedback{margin:0 20px 20px;border-radius:8px;padding:14px 16px;font-size:13.5px;display:none;}
+.feedback.show{display:block;}
+.feedback.ok{background:var(--good-soft);color:var(--good);border:1px solid var(--good);}
+.feedback.bad{background:var(--bad-soft);color:var(--bad);border:1px solid var(--bad);}
+.feedback b{display:block;margin-bottom:3px;font-size:14px;}
+.feedback .sub{color:var(--ink);opacity:.85;font-weight:400;}
+
+.result-panel{margin:0 20px 20px;}
+.result-panel h4{font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:8px;}
+.wt-title{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:12px 0 4px;}
+.wt-title:first-child{margin-top:0;}
+.result-tbl-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:8px;}
+table.result{border-collapse:collapse;width:100%;font-size:12.5px;}
+table.result th{background:var(--surface-2);text-align:left;padding:7px 10px;white-space:nowrap;position:sticky;top:0;}
+table.result td{padding:6px 10px;border-top:1px solid var(--border);white-space:nowrap;}
+table.result td.null{color:var(--faint);font-style:italic;}
+.schema-summary{font-size:12.5px;font-family:"IBM Plex Mono",monospace;display:grid;gap:4px;padding:10px 12px;background:var(--surface-2);border-radius:8px;}
+.err-box{background:var(--bad-soft);color:var(--bad);border:1px solid var(--bad);border-radius:8px;padding:10px 14px;font-size:13px;}
+.empty-note{color:var(--muted);font-size:12.5px;padding:8px 2px;}
+
+.celebrate{position:relative;margin:0 20px 18px;background:var(--accent-soft);color:var(--accent-ink);border:2px solid var(--accent);padding:14px 16px;display:none;overflow:hidden;}
+.celebrate.show{display:flex;align-items:center;gap:12px;}
+.celebrate b{font-size:14px;display:block;margin-bottom:2px;}
+.celebrate .sub{font-size:12.5px;opacity:.9;}
+
+.celebrate.levelup{background:var(--hud-bg);color:var(--hud-text);border:3px solid var(--gold);box-shadow:4px 4px 0 var(--pixel-shadow);animation:lvlup-pop .5s steps(8) both;}
+.lvlup-badge{width:48px;height:48px;background:var(--hud-bg-2);border:2px solid var(--gold);display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0;}
+.lvlup-text b{font-family:var(--pixel-font);font-size:12px;color:var(--gold);text-shadow:2px 2px 0 rgba(0,0,0,.4);display:block;margin-bottom:4px;line-height:1.5;}
+.lvlup-text span{font-size:12.5px;color:var(--hud-text);}
+.sparkle{position:absolute;color:var(--gold);font-size:15px;opacity:0;pointer-events:none;}
+.sparkle.s1{top:10px;right:22%;animation:sparkle-pop .9s ease-out .15s both;}
+.sparkle.s2{bottom:12px;right:11%;animation:sparkle-pop .9s ease-out .35s both;}
+.sparkle.s3{top:42%;right:4%;animation:sparkle-pop .9s ease-out .55s both;}
+@keyframes lvlup-pop{0%{transform:scale(.7);opacity:0;}60%{transform:scale(1.04);opacity:1;}100%{transform:scale(1);opacity:1;}}
+@keyframes sparkle-pop{0%{transform:translateY(0) scale(.5);opacity:0;}30%{opacity:1;transform:translateY(-6px) scale(1.2);}100%{transform:translateY(-20px) scale(.8);opacity:0;}}
+@media (prefers-reduced-motion: reduce){ .celebrate.levelup, .sparkle{ animation:none !important; } }
+
+.scope-note{color:var(--muted);font-size:12px;text-align:center;margin-top:22px;}
+</style>
+</head>
+<body>
+
+<div class="app">
+  <div class="hud pixel-panel">
+    <div class="hud-face">🗄️</div>
+    <div class="hud-mid">
+      <h1 class="hud-title">SQL DOJO</h1>
+      <div class="hud-world" id="hud-world">MUNDO: DQL — CONSULTAS</div>
+      <div class="hud-level" id="level-pill">🥋 Iniciante</div>
+    </div>
+    <div class="hud-stats">
+      <div class="hud-stat" title="Lições concluídas"><span class="hud-ic">📀</span><b id="stat-mastered">0/22</b></div>
+      <div class="hud-stat" title="Questões respondidas"><span class="hud-ic">⭐</span><b id="stat-answered">0</b></div>
+      <div class="hud-stat" title="Precisão"><span class="hud-ic">🎯</span><b id="stat-accuracy">—</b></div>
+      <div class="hud-stat" title="Para revisar"><span class="hud-ic">🔁</span><b id="stat-review">0</b></div>
+    </div>
+    <button class="sound-btn" id="btn-sound" title="Ativar/desativar sons">🔊</button>
+  </div>
+  <p class="tagline">Do SELECT básico a procedures — DDL, DML, DCL e TCL numa jornada só, na base <span class="mono">ESCOLA_SQL</span>.</p>
+
+  <div class="layout">
+    <nav class="sidebar" id="sidebar"></nav>
+
+    <div class="main">
+      <details class="schema">
+        <summary>Esquema do banco de dados ESCOLA_SQL</summary>
+        <div class="schema-body" id="schema-body"></div>
+      </details>
+
+      <div class="card">
+        <div class="q-head">
+          <span class="badge cat" id="q-cat-badge">Categoria</span>
+          <span class="badge topic" id="q-topic-badge">Tópico</span>
+          <span class="badge review" id="q-review-badge">🔁 Revisão</span>
+          <span class="progress-txt" id="q-progress">0/0 aprendidas</span>
+        </div>
+        <div class="q-prompt" id="q-prompt">Carregando…</div>
+        <div class="q-actions-row">
+          <button class="link-btn" id="btn-hint">Ver dica</button>
+          <button class="link-btn" id="btn-solution">Ver solução</button>
+          <button class="link-btn" id="btn-reroll">Trocar questão</button>
+        </div>
+        <div class="hint-box" id="hint-box" style="display:none;"></div>
+        <div class="sol-box" id="sol-box" style="display:none;"></div>
+
+        <div class="editor-wrap">
+          <textarea id="sql-input" spellcheck="false" placeholder="Escreva seu comando SQL aqui..."></textarea>
+        </div>
+        <div class="editor-actions">
+          <button class="btn" id="btn-run">▷ Executar</button>
+          <button class="btn primary" id="btn-check">✓ Verificar resposta</button>
+          <button class="btn next" id="btn-next" style="display:none;">Próxima questão →</button>
+        </div>
+
+        <div class="feedback" id="feedback"></div>
+        <div class="summary-box" id="summary-box"></div>
+        <div class="celebrate" id="celebrate"></div>
+
+        <div class="result-panel" id="result-panel" style="display:none;">
+          <h4 id="result-title">Resultado</h4>
+          <div id="result-body"></div>
+        </div>
+      </div>
+
+      <p class="scope-note">22 lições em 6 categorias (DQL, DML, DDL, TCL, DCL, Procedures). Não há controle de fluxo (IF/loops) dentro de procedures, nem triggers — fica para uma próxima fase.</p>
+    </div>
+  </div>
+</div>
+
+<script>
+'use strict';
+/* ============================= DADOS BASE ============================= */
+function baseSchema(){
+  return {
+    ALUNO:{
+      columns:['IDALUNO','NOME','SEXO','NASCIMENTO','EMAIL','ID_MENTOR'],
+      pk:'IDALUNO', notNull:['NOME','SEXO','NASCIMENTO'], unique:[],
+      types:{IDALUNO:'INT',NOME:'VARCHAR(50)',SEXO:'CHAR(1)',NASCIMENTO:'DATE',EMAIL:'VARCHAR(50)',ID_MENTOR:'INT'},
+      rows:[
+        {IDALUNO:1,NOME:'Ana Souza',SEXO:'F',NASCIMENTO:'2001-03-14',EMAIL:'ana.souza@mail.com',ID_MENTOR:8},
+        {IDALUNO:2,NOME:'Bruno Lima',SEXO:'M',NASCIMENTO:'1999-07-22',EMAIL:'bruno.lima@mail.com',ID_MENTOR:8},
+        {IDALUNO:3,NOME:'Carla Dias',SEXO:'F',NASCIMENTO:'2003-01-05',EMAIL:'carla.dias@mail.com',ID_MENTOR:5},
+        {IDALUNO:4,NOME:'Diego Alves',SEXO:'M',NASCIMENTO:'2000-11-30',EMAIL:null,ID_MENTOR:null},
+        {IDALUNO:5,NOME:'Elisa Nunes',SEXO:'F',NASCIMENTO:'1998-05-18',EMAIL:'elisa.nunes@mail.com',ID_MENTOR:14},
+        {IDALUNO:6,NOME:'Felipe Rocha',SEXO:'M',NASCIMENTO:'2002-09-09',EMAIL:'felipe.rocha@mail.com',ID_MENTOR:10},
+        {IDALUNO:7,NOME:'Gabriela Melo',SEXO:'F',NASCIMENTO:'2001-12-25',EMAIL:null,ID_MENTOR:null},
+        {IDALUNO:8,NOME:'Hugo Castro',SEXO:'M',NASCIMENTO:'1997-02-14',EMAIL:'hugo.castro@mail.com',ID_MENTOR:null},
+        {IDALUNO:9,NOME:'Isabela Reis',SEXO:'F',NASCIMENTO:'2004-04-04',EMAIL:'isabela.reis@mail.com',ID_MENTOR:5},
+        {IDALUNO:10,NOME:'Joao Pedro',SEXO:'M',NASCIMENTO:'1999-10-10',EMAIL:'joao.pedro@mail.com',ID_MENTOR:14},
+        {IDALUNO:11,NOME:'Karina Souza',SEXO:'F',NASCIMENTO:'2000-06-06',EMAIL:'karina.souza@mail.com',ID_MENTOR:null},
+        {IDALUNO:12,NOME:'Lucas Farias',SEXO:'M',NASCIMENTO:'2003-08-08',EMAIL:null,ID_MENTOR:10},
+        {IDALUNO:13,NOME:'Marina Costa',SEXO:'F',NASCIMENTO:'2001-01-20',EMAIL:'marina.costa@mail.com',ID_MENTOR:null},
+        {IDALUNO:14,NOME:'Nelson Vieira',SEXO:'M',NASCIMENTO:'1996-03-03',EMAIL:'nelson.vieira@mail.com',ID_MENTOR:null}
+      ]
+    },
+    ENDERECO:{
+      columns:['IDENDERECO','BAIRRO','CIDADE','UF','ID_ALUNO'],
+      pk:'IDENDERECO', notNull:['BAIRRO','CIDADE','UF'], unique:['ID_ALUNO'],
+      types:{IDENDERECO:'INT',BAIRRO:'VARCHAR(30)',CIDADE:'VARCHAR(30)',UF:'CHAR(2)',ID_ALUNO:'INT'},
+      rows:[
+        {IDENDERECO:1,BAIRRO:'Centro',CIDADE:'Rio de Janeiro',UF:'RJ',ID_ALUNO:1},
+        {IDENDERECO:2,BAIRRO:'Copacabana',CIDADE:'Rio de Janeiro',UF:'RJ',ID_ALUNO:2},
+        {IDENDERECO:3,BAIRRO:'Savassi',CIDADE:'Belo Horizonte',UF:'MG',ID_ALUNO:3},
+        {IDENDERECO:4,BAIRRO:'Centro',CIDADE:'Belo Horizonte',UF:'MG',ID_ALUNO:4},
+        {IDENDERECO:5,BAIRRO:'Pinheiros',CIDADE:'Sao Paulo',UF:'SP',ID_ALUNO:5},
+        {IDENDERECO:6,BAIRRO:'Moema',CIDADE:'Sao Paulo',UF:'SP',ID_ALUNO:6},
+        {IDENDERECO:7,BAIRRO:'Centro',CIDADE:'Curitiba',UF:'PR',ID_ALUNO:7},
+        {IDENDERECO:8,BAIRRO:'Batel',CIDADE:'Curitiba',UF:'PR',ID_ALUNO:8},
+        {IDENDERECO:9,BAIRRO:'Boa Viagem',CIDADE:'Recife',UF:'PE',ID_ALUNO:9},
+        {IDENDERECO:10,BAIRRO:'Centro',CIDADE:'Recife',UF:'PE',ID_ALUNO:10},
+        {IDENDERECO:11,BAIRRO:'Ipanema',CIDADE:'Rio de Janeiro',UF:'RJ',ID_ALUNO:11},
+        {IDENDERECO:12,BAIRRO:'Centro',CIDADE:'Sao Paulo',UF:'SP',ID_ALUNO:12}
+      ]
+    },
+    TELEFONE:{
+      columns:['IDTELEFONE','TIPO','NUMERO','ID_ALUNO'],
+      pk:'IDTELEFONE', notNull:['TIPO','NUMERO'], unique:[],
+      types:{IDTELEFONE:'INT',TIPO:'CHAR(3)',NUMERO:'VARCHAR(10)',ID_ALUNO:'INT'},
+      rows:[
+        {IDTELEFONE:1,TIPO:'CEL',NUMERO:'99999-0001',ID_ALUNO:1},
+        {IDTELEFONE:2,TIPO:'RES',NUMERO:'3333-0001',ID_ALUNO:1},
+        {IDTELEFONE:3,TIPO:'CEL',NUMERO:'99999-0002',ID_ALUNO:2},
+        {IDTELEFONE:4,TIPO:'CEL',NUMERO:'99999-0003',ID_ALUNO:3},
+        {IDTELEFONE:5,TIPO:'COM',NUMERO:'4444-0003',ID_ALUNO:3},
+        {IDTELEFONE:6,TIPO:'CEL',NUMERO:'99999-0005',ID_ALUNO:5},
+        {IDTELEFONE:7,TIPO:'CEL',NUMERO:'99999-0006',ID_ALUNO:6},
+        {IDTELEFONE:8,TIPO:'RES',NUMERO:'3333-0006',ID_ALUNO:6},
+        {IDTELEFONE:9,TIPO:'CEL',NUMERO:'99999-0008',ID_ALUNO:8},
+        {IDTELEFONE:10,TIPO:'CEL',NUMERO:'99999-0009',ID_ALUNO:9},
+        {IDTELEFONE:11,TIPO:'CEL',NUMERO:'99999-0010',ID_ALUNO:10},
+        {IDTELEFONE:12,TIPO:'COM',NUMERO:'4444-0010',ID_ALUNO:10},
+        {IDTELEFONE:13,TIPO:'CEL',NUMERO:'99999-0011',ID_ALUNO:11},
+        {IDTELEFONE:14,TIPO:'CEL',NUMERO:'99999-0013',ID_ALUNO:13}
+      ]
+    },
+    CURSO:{
+      columns:['IDCURSO','NOME','CARGA_HORARIA','VALOR'],
+      pk:'IDCURSO', notNull:['NOME','CARGA_HORARIA','VALOR'], unique:['NOME'],
+      types:{IDCURSO:'INT',NOME:'VARCHAR(50)',CARGA_HORARIA:'INT',VALOR:'DECIMAL(10,2)'},
+      rows:[
+        {IDCURSO:1,NOME:'SQL Basico',CARGA_HORARIA:20,VALOR:300.00},
+        {IDCURSO:2,NOME:'SQL Avancado',CARGA_HORARIA:30,VALOR:500.00},
+        {IDCURSO:3,NOME:'Modelagem de Dados',CARGA_HORARIA:25,VALOR:450.00},
+        {IDCURSO:4,NOME:'Power BI',CARGA_HORARIA:20,VALOR:400.00},
+        {IDCURSO:5,NOME:'Python para Dados',CARGA_HORARIA:40,VALOR:700.00},
+        {IDCURSO:6,NOME:'Excel Avancado',CARGA_HORARIA:15,VALOR:250.00}
+      ]
+    },
+    MATRICULA:{
+      columns:['IDMATRICULA','ID_ALUNO','ID_CURSO','DATA_MATRICULA','NOTA'],
+      pk:'IDMATRICULA', notNull:['ID_ALUNO','ID_CURSO','DATA_MATRICULA'], unique:[],
+      types:{IDMATRICULA:'INT',ID_ALUNO:'INT',ID_CURSO:'INT',DATA_MATRICULA:'DATE',NOTA:'DECIMAL(4,2)'},
+      rows:[
+        {IDMATRICULA:1,ID_ALUNO:1,ID_CURSO:1,DATA_MATRICULA:'2024-02-01',NOTA:8.5},
+        {IDMATRICULA:2,ID_ALUNO:1,ID_CURSO:2,DATA_MATRICULA:'2024-03-01',NOTA:9.0},
+        {IDMATRICULA:3,ID_ALUNO:2,ID_CURSO:1,DATA_MATRICULA:'2024-02-05',NOTA:6.0},
+        {IDMATRICULA:4,ID_ALUNO:2,ID_CURSO:4,DATA_MATRICULA:'2024-02-25',NOTA:7.6},
+        {IDMATRICULA:5,ID_ALUNO:3,ID_CURSO:3,DATA_MATRICULA:'2024-01-15',NOTA:7.5},
+        {IDMATRICULA:6,ID_ALUNO:3,ID_CURSO:1,DATA_MATRICULA:'2024-02-10',NOTA:null},
+        {IDMATRICULA:7,ID_ALUNO:4,ID_CURSO:4,DATA_MATRICULA:'2024-02-20',NOTA:10.0},
+        {IDMATRICULA:8,ID_ALUNO:5,ID_CURSO:1,DATA_MATRICULA:'2024-02-01',NOTA:5.5},
+        {IDMATRICULA:9,ID_ALUNO:5,ID_CURSO:5,DATA_MATRICULA:'2024-04-01',NOTA:8.2},
+        {IDMATRICULA:10,ID_ALUNO:6,ID_CURSO:2,DATA_MATRICULA:'2024-03-05',NOTA:7.1},
+        {IDMATRICULA:11,ID_ALUNO:7,ID_CURSO:1,DATA_MATRICULA:'2024-02-01',NOTA:null},
+        {IDMATRICULA:12,ID_ALUNO:8,ID_CURSO:3,DATA_MATRICULA:'2024-01-20',NOTA:9.5},
+        {IDMATRICULA:13,ID_ALUNO:9,ID_CURSO:4,DATA_MATRICULA:'2024-02-15',NOTA:6.5},
+        {IDMATRICULA:14,ID_ALUNO:9,ID_CURSO:6,DATA_MATRICULA:'2024-03-10',NOTA:8.3},
+        {IDMATRICULA:15,ID_ALUNO:10,ID_CURSO:1,DATA_MATRICULA:'2024-02-01',NOTA:4.5},
+        {IDMATRICULA:16,ID_ALUNO:10,ID_CURSO:2,DATA_MATRICULA:'2024-03-15',NOTA:7.3},
+        {IDMATRICULA:17,ID_ALUNO:11,ID_CURSO:5,DATA_MATRICULA:'2024-04-05',NOTA:9.2},
+        {IDMATRICULA:18,ID_ALUNO:12,ID_CURSO:1,DATA_MATRICULA:'2024-02-01',NOTA:null},
+        {IDMATRICULA:19,ID_ALUNO:13,ID_CURSO:3,DATA_MATRICULA:'2024-01-25',NOTA:8.6}
+      ]
+    },
+    PERMISSAO:{
+      columns:['IDPERMISSAO','USUARIO','TABELA','PRIVILEGIO'],
+      pk:'IDPERMISSAO', notNull:['USUARIO','TABELA','PRIVILEGIO'], unique:[],
+      types:{IDPERMISSAO:'INT',USUARIO:'VARCHAR(30)',TABELA:'VARCHAR(30)',PRIVILEGIO:'VARCHAR(10)'},
+      rows:[
+        {IDPERMISSAO:1,USUARIO:'estagiario',TABELA:'ALUNO',PRIVILEGIO:'SELECT'},
+        {IDPERMISSAO:2,USUARIO:'estagiario',TABELA:'ALUNO',PRIVILEGIO:'DELETE'},
+        {IDPERMISSAO:3,USUARIO:'professor',TABELA:'MATRICULA',PRIVILEGIO:'SELECT'},
+        {IDPERMISSAO:4,USUARIO:'professor',TABELA:'MATRICULA',PRIVILEGIO:'UPDATE'}
+      ]
+    }
+  };
+}
+let NEXT_PERM_ID = 100;
+const AGG_FUNCS = ['COUNT','SUM','AVG','MIN','MAX'];
+
+/* ============================= TOKENIZER ============================= */
+function tokenize(sql){
+  const toks=[]; let i=0; const n=sql.length;
+  const isIdentStart=c=>/[A-Za-z_]/.test(c);
+  const isIdentPart=c=>/[A-Za-z0-9_]/.test(c);
+  while(i<n){
+    const c=sql[i];
+    if(/\s/.test(c)){i++;continue;}
+    if(c==='-'&&sql[i+1]==='-'){ while(i<n&&sql[i]!=='\n')i++; continue; }
+    if(c==="'"){
+      let j=i+1,s='';
+      while(j<n){
+        if(sql[j]==="'"){ if(sql[j+1]==="'"){s+="'";j+=2;continue;} j++; break; }
+        s+=sql[j]; j++;
+      }
+      toks.push({type:'string',v:s}); i=j; continue;
+    }
+    if(c==='"'){
+      let j=i+1,s='';
+      while(j<n&&sql[j]!=='"'){s+=sql[j];j++;}
+      j++;
+      toks.push({type:'qident',v:s}); i=j; continue;
+    }
+    if(c==='@'){
+      let j=i+1,s='';
+      while(j<n&&isIdentPart(sql[j])){s+=sql[j];j++;}
+      toks.push({type:'param',v:s.toUpperCase()}); i=j; continue;
+    }
+    if(/[0-9]/.test(c)){
+      let j=i,s='';
+      while(j<n&&/[0-9.]/.test(sql[j])){s+=sql[j];j++;}
+      toks.push({type:'number',v:parseFloat(s)}); i=j; continue;
+    }
+    if(isIdentStart(c)){
+      let j=i,s='';
+      while(j<n&&isIdentPart(sql[j])){s+=sql[j];j++;}
+      toks.push({type:'ident',v:s.toUpperCase(),raw:s}); i=j; continue;
+    }
+    const two=sql.substr(i,2);
+    if(['<>','!=','<=','>='].includes(two)){ toks.push({type:'op',v:two==='!='?'<>':two}); i+=2; continue; }
+    if('=<>(),.;*+-/%'.includes(c)){ toks.push({type:'op',v:c}); i++; continue; }
+    throw new Error('Caractere inesperado: "'+c+'"');
+  }
+  toks.push({type:'eof'});
+  return toks;
+}
+
+/* ============================= PARSER ============================= */
+const CLAUSE_KW=['WHERE','GROUP','ORDER','HAVING','JOIN','INNER','LEFT','ON','AND','OR','SET','VALUES'];
+const TYPE_KW=['INT','INTEGER','VARCHAR','CHAR','DATE','DATETIME','DECIMAL','NUMERIC','FLOAT','TEXT','BOOLEAN','MONEY'];
+class Parser{
+  constructor(toks){ this.toks=toks; this.pos=0; }
+  peek(){ return this.toks[this.pos]; }
+  peekAt(n){ return this.toks[this.pos+n]; }
+  advance(){ return this.toks[this.pos++]; }
+  isKw(name){ const t=this.peek(); return t.type==='ident'&&t.v===name; }
+  eatKw(name){ if(!this.isKw(name)) this.err('Esperava "'+name+'"'); this.advance(); }
+  isOp(v){ const t=this.peek(); return t.type==='op'&&t.v===v; }
+  eatOp(v){ if(!this.isOp(v)) this.err('Esperava "'+v+'"'); this.advance(); }
+  err(msg){ const t=this.peek(); throw new Error(msg+' (perto de "'+(t.raw||t.v||t.type)+'")'); }
+
+  /* ---- script: sequência de comandos separados por ; ---- */
+  parseScript(){
+    const stmts=[];
+    while(this.peek().type!=='eof'){
+      while(this.isOp(';')) this.advance();
+      if(this.peek().type==='eof') break;
+      stmts.push(this.parseAnyStatement());
+      while(this.isOp(';')) this.advance();
+    }
+    return stmts;
+  }
+  parseStatement(){
+    const q=this.parseAnyStatement();
+    while(this.isOp(';')) this.advance();
+    if(this.peek().type!=='eof') this.err('Conteúdo inesperado no final da consulta');
+    return q;
+  }
+  parseAnyStatement(){
+    const t=this.peek();
+    if(t.type!=='ident') this.err('Esperava um comando SQL');
+    switch(t.v){
+      case 'SELECT': return this.parseSelectCore();
+      case 'INSERT': return this.parseInsert();
+      case 'UPDATE': return this.parseUpdate();
+      case 'DELETE': return this.parseDelete();
+      case 'CREATE': return this.parseCreate();
+      case 'ALTER': return this.parseAlterTable();
+      case 'DROP': return this.parseDrop();
+      case 'BEGIN': this.advance(); if(this.isKw('TRANSACTION'))this.advance(); return {type:'begin'};
+      case 'START': this.advance(); this.eatKw('TRANSACTION'); return {type:'begin'};
+      case 'COMMIT': this.advance(); if(this.isKw('TRANSACTION'))this.advance(); return {type:'commit'};
+      case 'ROLLBACK': this.advance(); if(this.isKw('TRANSACTION'))this.advance(); return {type:'rollback'};
+      case 'GRANT': return this.parseGrant();
+      case 'REVOKE': return this.parseRevoke();
+      case 'EXEC': case 'EXECUTE': case 'CALL': return this.parseExec();
+      default: this.err('Comando não reconhecido: "'+t.v+'"');
+    }
+  }
+
+  /* ---- SELECT (consulta) ---- */
+  parseSelectCore(){
+    this.eatKw('SELECT');
+    let distinct=false;
+    if(this.isKw('DISTINCT')){ this.advance(); distinct=true; }
+    const selectItems=this.parseSelectList();
+    this.eatKw('FROM');
+    const from=this.parseFromClause();
+    let where=null;
+    if(this.isKw('WHERE')){ this.advance(); where=this.parseOr(); }
+    let groupBy=[];
+    if(this.isKw('GROUP')){ this.advance(); this.eatKw('BY'); groupBy=this.parseExprList(); }
+    let having=null;
+    if(this.isKw('HAVING')){ this.advance(); having=this.parseOr(); }
+    let orderBy=[];
+    if(this.isKw('ORDER')){ this.advance(); this.eatKw('BY'); orderBy=this.parseOrderList(); }
+    return {type:'select',distinct,selectItems,from,where,groupBy,having,orderBy};
+  }
+  parseSelectList(){
+    const items=[this.parseSelectItem()];
+    while(this.isOp(',')){ this.advance(); items.push(this.parseSelectItem()); }
+    return items;
+  }
+  parseSelectItem(){
+    if(this.isOp('*')){ this.advance(); return {expr:{type:'star'},alias:null}; }
+    if(this.peek().type==='ident'){
+      const nm=this.peek().v;
+      if(this.peekAt(1) && this.peekAt(1).type==='op' && this.peekAt(1).v==='.' &&
+         this.peekAt(2) && this.peekAt(2).type==='op' && this.peekAt(2).v==='*'){
+        this.pos+=3;
+        return {expr:{type:'starQualified',table:nm},alias:null};
+      }
+    }
+    const expr=this.parseOr();
+    let alias=null;
+    if(this.isKw('AS')){ this.advance(); alias=this.parseAliasName(); }
+    else if(this.peek().type==='qident'){ alias=this.advance().v; }
+    else if(this.peek().type==='ident' && !CLAUSE_KW.includes(this.peek().v) && this.peek().v!=='FROM'){
+      alias=this.advance().v;
+    }
+    return {expr,alias};
+  }
+  parseAliasName(){
+    if(this.peek().type==='ident'){ return this.advance().v; }
+    if(this.peek().type==='qident'){ return this.advance().v; }
+    this.err('Esperava um alias');
+  }
+  parseFromClause(){
+    const tables=[this.parseTableRef()];
+    const joins=[];
+    while(true){
+      if(this.isOp(',')){ this.advance(); tables.push(this.parseTableRef()); continue; }
+      if(this.isKw('JOIN')){ this.advance(); const tbl=this.parseTableRef(); this.eatKw('ON'); const on=this.parseOr(); joins.push({type:'INNER',table:tbl,on}); continue; }
+      if(this.isKw('INNER')){ this.advance(); this.eatKw('JOIN'); const tbl=this.parseTableRef(); this.eatKw('ON'); const on=this.parseOr(); joins.push({type:'INNER',table:tbl,on}); continue; }
+      if(this.isKw('LEFT')){ this.advance(); if(this.isKw('OUTER'))this.advance(); this.eatKw('JOIN'); const tbl=this.parseTableRef(); this.eatKw('ON'); const on=this.parseOr(); joins.push({type:'LEFT',table:tbl,on}); continue; }
+      break;
+    }
+    return {tables,joins};
+  }
+  parseTableRef(){
+    if(this.peek().type!=='ident') this.err('Esperava o nome de uma tabela');
+    const name=this.advance().v;
+    let alias=name;
+    if(this.isKw('AS')){ this.advance(); alias=this.parseAliasName(); }
+    else if(this.peek().type==='ident' && !CLAUSE_KW.includes(this.peek().v)){ alias=this.advance().v; }
+    return {name,alias};
+  }
+
+  /* ---- expressões (compartilhadas por todos os comandos) ---- */
+  parseOr(){ let l=this.parseAnd(); while(this.isKw('OR')){ this.advance(); l={type:'or',left:l,right:this.parseAnd()}; } return l; }
+  parseAnd(){ let l=this.parseNot(); while(this.isKw('AND')){ this.advance(); l={type:'and',left:l,right:this.parseNot()}; } return l; }
+  parseNot(){ if(this.isKw('NOT')){ this.advance(); return {type:'not',expr:this.parseNot()}; } return this.parseComparison(); }
+  parseComparison(){
+    const left=this.parseAdditive();
+    let negate=false;
+    if(this.isKw('NOT')){
+      const save=this.pos; this.advance();
+      if(this.isKw('LIKE')||this.isKw('IN')||this.isKw('BETWEEN')) negate=true;
+      else this.pos=save;
+    }
+    if(this.peek().type==='op' && ['=','<>','<','>','<=','>='].includes(this.peek().v)){
+      const op=this.advance().v; const right=this.parseAdditive();
+      const node={type:'cmp',op,left,right};
+      return negate?{type:'not',expr:node}:node;
+    }
+    if(this.isKw('LIKE')){ this.advance(); const pattern=this.parseAdditive(); const node={type:'like',left,pattern}; return negate?{type:'not',expr:node}:node; }
+    if(this.isKw('IN')){
+      this.advance(); this.eatOp('(');
+      let node;
+      if(this.isKw('SELECT')){ const sub=this.parseSelectCore(); node={type:'in',left,subquery:sub}; }
+      else { const list=this.parseExprList(); node={type:'in',left,list}; }
+      this.eatOp(')');
+      return negate?{type:'not',expr:node}:node;
+    }
+    if(this.isKw('IS')){ this.advance(); let notNull=false; if(this.isKw('NOT')){this.advance();notNull=true;} this.eatKw('NULL'); return {type:'isnull',left,negate:notNull}; }
+    if(this.isKw('BETWEEN')){ this.advance(); const lo=this.parseAdditive(); this.eatKw('AND'); const hi=this.parseAdditive(); const node={type:'between',left,lo,hi}; return negate?{type:'not',expr:node}:node; }
+    if(negate) return {type:'not',expr:left};
+    return left;
+  }
+  parseAdditive(){ let l=this.parseMultiplicative(); while(this.peek().type==='op'&&(this.peek().v==='+'||this.peek().v==='-')){ const op=this.advance().v; l={type:'bin',op,left:l,right:this.parseMultiplicative()}; } return l; }
+  parseMultiplicative(){ let l=this.parseUnary(); while(this.peek().type==='op'&&(this.peek().v==='*'||this.peek().v==='/')){ const op=this.advance().v; l={type:'bin',op,left:l,right:this.parseUnary()}; } return l; }
+  parseUnary(){ if(this.isOp('-')){ this.advance(); return {type:'neg',expr:this.parseUnary()}; } return this.parsePrimary(); }
+  parsePrimary(){
+    const t=this.peek();
+    if(t.type==='number'){ this.advance(); return {type:'lit',v:t.v}; }
+    if(t.type==='string'){ this.advance(); return {type:'lit',v:t.v,isString:true}; }
+    if(t.type==='qident'){ this.advance(); return {type:'lit',v:t.v,isString:true}; }
+    if(t.type==='param'){ this.advance(); return {type:'param',name:t.v}; }
+    if(t.type==='ident' && t.v==='NULL'){ this.advance(); return {type:'null'}; }
+    if(this.isOp('(')){
+      this.advance();
+      if(this.isKw('SELECT')){ const sub=this.parseSelectCore(); this.eatOp(')'); return {type:'subquery',query:sub}; }
+      const e=this.parseOr(); this.eatOp(')'); return e;
+    }
+    if(t.type==='ident'){
+      const name=t.v; this.advance();
+      if(this.isOp('(')){
+        this.advance();
+        let args=[];
+        if(this.isOp('*')){ args=[{type:'star'}]; this.advance(); }
+        else if(!this.isOp(')')){
+          args.push(this.parseOr());
+          while(this.isOp(',')){ this.advance(); args.push(this.parseOr()); }
+        }
+        this.eatOp(')');
+        return {type:'call',name,args};
+      }
+      if(this.isOp('.')){ this.advance(); if(this.peek().type!=='ident') this.err('Esperava um nome de coluna'); const col=this.advance().v; return {type:'col',table:name,name:col}; }
+      return {type:'col',table:null,name};
+    }
+    this.err('Erro de sintaxe');
+  }
+  parseExprList(){ const list=[this.parseOr()]; while(this.isOp(',')){ this.advance(); list.push(this.parseOr()); } return list; }
+  parseOrderList(){ const items=[this.parseOrderItem()]; while(this.isOp(',')){ this.advance(); items.push(this.parseOrderItem()); } return items; }
+  parseOrderItem(){
+    let expr;
+    if(this.peek().type==='number'){ expr={type:'pos',v:this.peek().v}; this.advance(); }
+    else expr=this.parseOr();
+    let dir='ASC';
+    if(this.isKw('ASC')){ this.advance(); dir='ASC'; }
+    else if(this.isKw('DESC')){ this.advance(); dir='DESC'; }
+    return {expr,dir};
+  }
+
+  /* ---- DML: INSERT / UPDATE / DELETE ---- */
+  parseInsert(){
+    this.eatKw('INSERT'); this.eatKw('INTO');
+    if(this.peek().type!=='ident') this.err('Esperava o nome de uma tabela');
+    const table=this.advance().v;
+    let columns=null;
+    if(this.isOp('(')){
+      this.advance();
+      columns=[this.advance().v];
+      while(this.isOp(',')){ this.advance(); columns.push(this.advance().v); }
+      this.eatOp(')');
+    }
+    this.eatKw('VALUES');
+    const valueRows=[this.parseValueTuple()];
+    while(this.isOp(',')){ this.advance(); valueRows.push(this.parseValueTuple()); }
+    return {type:'insert', table, columns, valueRows};
+  }
+  parseValueTuple(){
+    this.eatOp('(');
+    const vals=[this.parseOr()];
+    while(this.isOp(',')){ this.advance(); vals.push(this.parseOr()); }
+    this.eatOp(')');
+    return vals;
+  }
+  parseUpdate(){
+    this.eatKw('UPDATE');
+    if(this.peek().type!=='ident') this.err('Esperava o nome de uma tabela');
+    const table=this.advance().v;
+    this.eatKw('SET');
+    const sets=[this.parseSetItem()];
+    while(this.isOp(',')){ this.advance(); sets.push(this.parseSetItem()); }
+    let where=null;
+    if(this.isKw('WHERE')){ this.advance(); where=this.parseOr(); }
+    return {type:'update', table, sets, where};
+  }
+  parseSetItem(){
+    if(this.peek().type!=='ident') this.err('Esperava um nome de coluna');
+    const col=this.advance().v;
+    this.eatOp('=');
+    const expr=this.parseOr();
+    return {col, expr};
+  }
+  parseDelete(){
+    this.eatKw('DELETE'); this.eatKw('FROM');
+    if(this.peek().type!=='ident') this.err('Esperava o nome de uma tabela');
+    const table=this.advance().v;
+    let where=null;
+    if(this.isKw('WHERE')){ this.advance(); where=this.parseOr(); }
+    return {type:'delete', table, where};
+  }
+
+  /* ---- DDL: CREATE TABLE / CREATE PROCEDURE / ALTER / DROP ---- */
+  parseCreate(){
+    this.eatKw('CREATE');
+    if(this.isKw('TABLE')) return this.parseCreateTable();
+    if(this.isKw('PROCEDURE')||this.isKw('PROC')) return this.parseCreateProcedure();
+    this.err('Só é possível CREATE TABLE ou CREATE PROCEDURE');
+  }
+  parseTypeSpec(){
+    if(this.peek().type!=='ident') this.err('Esperava um tipo de dado');
+    let s=this.advance().v;
+    if(this.isOp('(')){
+      s+='('; this.advance();
+      s+=this.advance().v;
+      while(this.isOp(',')){ this.advance(); s+=','+this.advance().v; }
+      this.eatOp(')'); s+=')';
+    }
+    return s;
+  }
+  parseCreateTable(){
+    this.eatKw('TABLE');
+    if(this.peek().type!=='ident') this.err('Esperava o nome da tabela');
+    const name=this.advance().v;
+    this.eatOp('(');
+    const columns=[]; const foreignKeys=[]; let pk=null;
+    const parseColDef=()=>{
+      if(this.isKw('PRIMARY')){ this.advance(); this.eatKw('KEY'); this.eatOp('('); pk=this.advance().v; this.eatOp(')'); return; }
+      if(this.isKw('FOREIGN')){ this.advance(); this.eatKw('KEY'); this.eatOp('('); const col=this.advance().v; this.eatOp(')'); this.eatKw('REFERENCES'); const refTable=this.advance().v; this.eatOp('('); const refCol=this.advance().v; this.eatOp(')'); foreignKeys.push({col,refTable,refCol}); return; }
+      if(this.isKw('CONSTRAINT')){ this.advance(); this.advance(); /* nome da constraint, ignorado */ return parseColDef(); }
+      if(this.peek().type!=='ident') this.err('Esperava a definição de uma coluna');
+      const colName=this.advance().v;
+      const typeStr=this.parseTypeSpec();
+      let notNull=false, unique=false, colPk=false;
+      while(true){
+        if(this.isKw('PRIMARY')){ this.advance(); this.eatKw('KEY'); colPk=true; continue; }
+        if(this.isKw('NOT')){ this.advance(); this.eatKw('NULL'); notNull=true; continue; }
+        if(this.isKw('UNIQUE')){ this.advance(); unique=true; continue; }
+        if(this.isKw('NULL')){ this.advance(); continue; }
+        if(this.isKw('IDENTITY')||this.isKw('AUTO_INCREMENT')){ this.advance(); continue; }
+        if(this.isKw('CHECK')){ this.advance(); this.eatOp('('); this.parseOr(); this.eatOp(')'); continue; }
+        if(this.isKw('DEFAULT')){ this.advance(); this.parseUnary(); continue; }
+        break;
+      }
+      if(colPk) pk=colName;
+      columns.push({name:colName, typeStr, notNull, unique});
+    };
+    parseColDef();
+    while(this.isOp(',')){ this.advance(); parseColDef(); }
+    this.eatOp(')');
+    return {type:'createTable', name, columns, pk, foreignKeys};
+  }
+  parseCreateProcedure(){
+    if(this.isKw('PROCEDURE')) this.advance(); else this.advance();
+    if(this.peek().type!=='ident') this.err('Esperava o nome da procedure');
+    const name=this.advance().v;
+    const params=[];
+    const readParams=()=>{
+      let first=true;
+      while(this.peek().type==='param'){
+        if(!first) {} first=false;
+        const pname=this.advance().v;
+        const ptype=this.peek().type==='ident'?this.parseTypeSpec():null;
+        params.push({name:pname, typeStr:ptype});
+        if(this.isOp(',')) this.advance(); else break;
+      }
+    };
+    if(this.isOp('(')){ this.advance(); readParams(); this.eatOp(')'); }
+    else { readParams(); }
+    this.eatKw('AS');
+    if(this.isKw('BEGIN')) this.advance();
+    const body=[];
+    while(!this.isKw('END')){
+      while(this.isOp(';')) this.advance();
+      if(this.isKw('END')) break;
+      body.push(this.parseAnyStatement());
+      while(this.isOp(';')) this.advance();
+    }
+    this.eatKw('END');
+    return {type:'createProcedure', name, params, body};
+  }
+  parseExec(){
+    this.advance(); // EXEC / EXECUTE / CALL
+    if(this.peek().type!=='ident') this.err('Esperava o nome de uma procedure');
+    const name=this.advance().v;
+    const args=[];
+    if(this.isOp('(')){
+      this.advance();
+      if(!this.isOp(')')){ args.push(this.parseOr()); while(this.isOp(',')){ this.advance(); args.push(this.parseOr()); } }
+      this.eatOp(')');
+    } else if(!this.isOp(';') && this.peek().type!=='eof' && !this.isKw('END')){
+      args.push(this.parseOr());
+      while(this.isOp(',')){ this.advance(); args.push(this.parseOr()); }
+    }
+    return {type:'exec', name, args};
+  }
+  parseAlterTable(){
+    this.eatKw('ALTER'); this.eatKw('TABLE');
+    if(this.peek().type!=='ident') this.err('Esperava o nome da tabela');
+    const table=this.advance().v;
+    if(this.isKw('ADD')){
+      this.advance();
+      if(this.isKw('CONSTRAINT')){
+        this.advance(); this.advance(); // nome da constraint
+        this.eatKw('FOREIGN'); this.eatKw('KEY'); this.eatOp('(');
+        const col=this.advance().v; this.eatOp(')'); this.eatKw('REFERENCES');
+        const refTable=this.advance().v; this.eatOp('('); const refCol=this.advance().v; this.eatOp(')');
+        return {type:'alterAddFk', table, col, refTable, refCol};
+      }
+      if(this.isKw('COLUMN')) this.advance();
+      const colName=this.advance().v;
+      const typeStr=this.parseTypeSpec();
+      let notNull=false;
+      while(this.isKw('NOT')||this.isKw('NULL')||this.isKw('UNIQUE')){
+        if(this.isKw('NOT')){ this.advance(); this.eatKw('NULL'); notNull=true; }
+        else if(this.isKw('NULL')){ this.advance(); }
+        else { this.advance(); }
+      }
+      return {type:'alterAddColumn', table, colName, typeStr, notNull};
+    }
+    if(this.isKw('DROP')){
+      this.advance(); if(this.isKw('COLUMN')) this.advance();
+      const colName=this.advance().v;
+      return {type:'alterDropColumn', table, colName};
+    }
+    if(this.isKw('MODIFY')||this.isKw('ALTER')){
+      this.advance(); if(this.isKw('COLUMN')) this.advance();
+      const colName=this.advance().v;
+      const typeStr=this.parseTypeSpec();
+      return {type:'alterModifyColumn', table, colName, typeStr};
+    }
+    this.err('Depois de ALTER TABLE, use ADD, DROP ou MODIFY');
+  }
+  parseDrop(){
+    this.eatKw('DROP'); this.eatKw('TABLE');
+    if(this.peek().type!=='ident') this.err('Esperava o nome da tabela');
+    const name=this.advance().v;
+    return {type:'dropTable', name};
+  }
+
+  /* ---- DCL: GRANT / REVOKE ---- */
+  parsePrivilegeList(){
+    const list=[this.advance().v];
+    while(this.isOp(',')){ this.advance(); list.push(this.advance().v); }
+    return list;
+  }
+  parseUserName(){ const t=this.advance(); return t.raw || t.v; }
+  parseGrant(){
+    this.eatKw('GRANT');
+    const privileges=this.parsePrivilegeList();
+    this.eatKw('ON');
+    const table=this.advance().v;
+    this.eatKw('TO');
+    const user=this.parseUserName();
+    return {type:'grant', privileges, table, user};
+  }
+  parseRevoke(){
+    this.eatKw('REVOKE');
+    const privileges=this.parsePrivilegeList();
+    this.eatKw('ON');
+    const table=this.advance().v;
+    this.eatKw('FROM');
+    const user=this.parseUserName();
+    return {type:'revoke', privileges, table, user};
+  }
+}
+function parseSQL(text){ return new Parser(tokenize(text)).parseStatement(); }
+function parseScriptText(text){ return new Parser(tokenize(text)).parseScript(); }
+
+/* ============================= EVALUATOR (expressões) ============================= */
+let CURRENT_PARAMS = {};
+function getTable(schema,name){ const t=schema[name.toUpperCase()]; if(!t) throw new Error('Tabela "'+name+'" não existe. Tabelas disponíveis: '+Object.keys(schema).join(', ')+'.'); return t; }
+function makeCtx(alias,rowObj){ const A=alias.toUpperCase(); const byAlias={}; byAlias[A]=rowObj; const flat={...rowObj}; return {byAlias,flat,aliasOrder:[A]}; }
+function mergeCtx(a,b){ return {byAlias:{...a.byAlias,...b.byAlias}, flat:{...a.flat,...b.flat}, aliasOrder:[...a.aliasOrder,...b.aliasOrder]}; }
+function baseCtxRows(schema,alias,tableName){ const tbl=getTable(schema,tableName); return tbl.rows.map(r=>makeCtx(alias,r)); }
+function nullCtxFor(schema,alias,tableName){ const tbl=getTable(schema,tableName); const nullRow={}; tbl.columns.forEach(c=>nullRow[c]=null); return makeCtx(alias,nullRow); }
+function collectParticipating(from){ return [...from.tables, ...from.joins.map(j=>j.table)]; }
+function computeAmbiguous(schema,participating){
+  const owners={};
+  participating.forEach(p=>{ getTable(schema,p.name).columns.forEach(c=>{ owners[c]=(owners[c]||0)+1; }); });
+  return new Set(Object.keys(owners).filter(c=>owners[c]>1));
+}
+function getColumnValue(ctxRow,node,amb){
+  if(node.table){
+    const key=node.table.toUpperCase();
+    const tbl=ctxRow.byAlias[key];
+    if(!tbl) throw new Error('Alias/tabela "'+node.table+'" não encontrado nesta consulta.');
+    if(!(node.name in tbl)) throw new Error('Coluna "'+node.name+'" não existe em '+node.table+'.');
+    return tbl[node.name];
+  }
+  if(amb.has(node.name)) throw new Error('Coluna "'+node.name+'" é ambígua entre duas tabelas. Use ALIAS.'+node.name+'.');
+  if(!(node.name in ctxRow.flat)) throw new Error('Coluna "'+node.name+'" não existe em nenhuma tabela desta consulta.');
+  return ctxRow.flat[node.name];
+}
+function containsAgg(node){
+  if(!node || typeof node!=='object') return false;
+  if(node.type==='call' && AGG_FUNCS.includes(node.name)) return true;
+  for(const k in node){
+    const v=node[k];
+    if(v && typeof v==='object' && v.type==='select') continue;
+    if(Array.isArray(v)){ if(v.some(x=>containsAgg(x))) return true; }
+    else if(v && typeof v==='object' && containsAgg(v)) return true;
+  }
+  return false;
+}
+function likeMatch(str,pattern){
+  const esc=pattern.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+  const re='^'+esc.replace(/%/g,'.*').replace(/_/g,'.')+'$';
+  return new RegExp(re,'i').test(str);
+}
+function valuesEqual(a,b){
+  if(a==null||b==null) return a===b;
+  if(typeof a==='string'||typeof b==='string') return String(a).toLowerCase()===String(b).toLowerCase();
+  return a===b;
+}
+function compareOp(op,l,r){
+  if(l==null||r==null) return false;
+  let a=l,b=r;
+  if(typeof a==='string'||typeof b==='string'){ a=String(a).toLowerCase(); b=String(b).toLowerCase(); }
+  switch(op){ case '=':return a===b; case '<>':return a!==b; case '<':return a<b; case '>':return a>b; case '<=':return a<=b; case '>=':return a>=b; }
+}
+function compareForSort(a,b){
+  if(a==null&&b==null) return 0;
+  if(a==null) return -1;
+  if(b==null) return 1;
+  if(typeof a==='string'||typeof b==='string'){ const as=String(a).toLowerCase(), bs=String(b).toLowerCase(); return as<bs?-1:as>bs?1:0; }
+  return a<b?-1:a>b?1:0;
+}
+function evalExpr(node,ctx,amb,schema){
+  switch(node.type){
+    case 'lit': return node.v;
+    case 'null': return null;
+    case 'param': {
+      const src = (ctx && ctx.params) ? ctx.params : CURRENT_PARAMS;
+      if(!(node.name in src)) throw new Error('Parâmetro @'+node.name+' não foi definido.');
+      return src[node.name];
+    }
+    case 'col': {
+      const row=ctx.row || (ctx.group && ctx.group[0]);
+      if(!row) throw new Error('Contexto de linha indisponível para "'+node.name+'".');
+      return getColumnValue(row,node,amb);
+    }
+    case 'neg': { const v=evalExpr(node.expr,ctx,amb,schema); return v==null?null:-v; }
+    case 'not': return !evalExpr(node.expr,ctx,amb,schema);
+    case 'and': return !!(evalExpr(node.left,ctx,amb,schema) && evalExpr(node.right,ctx,amb,schema));
+    case 'or': return !!(evalExpr(node.left,ctx,amb,schema) || evalExpr(node.right,ctx,amb,schema));
+    case 'cmp': return compareOp(node.op, evalExpr(node.left,ctx,amb,schema), evalExpr(node.right,ctx,amb,schema));
+    case 'like': { const l=evalExpr(node.left,ctx,amb,schema), p=evalExpr(node.pattern,ctx,amb,schema); if(l==null||p==null) return false; return likeMatch(String(l),String(p)); }
+    case 'in': {
+      const l=evalExpr(node.left,ctx,amb,schema); if(l==null) return false;
+      if(node.subquery){ const res=executeSelect(node.subquery,schema); return res.rows.some(r=>valuesEqual(l,r[0])); }
+      return node.list.some(e=>valuesEqual(l,evalExpr(e,ctx,amb,schema)));
+    }
+    case 'isnull': { const l=evalExpr(node.left,ctx,amb,schema); const isN=(l===null||l===undefined); return node.negate?!isN:isN; }
+    case 'between': { const l=evalExpr(node.left,ctx,amb,schema); if(l==null) return false; const lo=evalExpr(node.lo,ctx,amb,schema), hi=evalExpr(node.hi,ctx,amb,schema); return compareOp('>=',l,lo)&&compareOp('<=',l,hi); }
+    case 'bin': { const l=evalExpr(node.left,ctx,amb,schema), r=evalExpr(node.right,ctx,amb,schema); if(l==null||r==null) return null; if(node.op==='+')return l+r; if(node.op==='-')return l-r; if(node.op==='*')return l*r; if(node.op==='/')return r===0?null:l/r; }
+    case 'call': return evalCall(node,ctx,amb,schema);
+    case 'subquery': { const res=executeSelect(node.query,schema); return res.rows.length? res.rows[0][0] : null; }
+    default: throw new Error('Expressão não suportada.');
+  }
+}
+function evalCall(node,ctx,amb,schema){
+  const fname=node.name;
+  if(AGG_FUNCS.includes(fname)){
+    const g=ctx.group;
+    if(!g) throw new Error('A função '+fname+'() só pode ser usada com GROUP BY ou HAVING (agregação). Ela não pode aparecer em WHERE.');
+    if(fname==='COUNT'){
+      if(node.args.length===1 && node.args[0].type==='star') return g.length;
+      return g.map(r=>evalExpr(node.args[0],{row:r,group:null,params:ctx.params},amb,schema)).filter(v=>v!=null).length;
+    }
+    const rawVals=g.map(r=>evalExpr(node.args[0],{row:r,group:null,params:ctx.params},amb,schema)).filter(v=>v!=null);
+    if(fname==='SUM') return rawVals.reduce((a,b)=>a+Number(b),0);
+    if(fname==='AVG') return rawVals.length? rawVals.reduce((a,b)=>a+Number(b),0)/rawVals.length : null;
+    if(fname==='MIN') return rawVals.length? rawVals.reduce((a,c)=>compareForSort(c,a)<0?c:a) : null;
+    if(fname==='MAX') return rawVals.length? rawVals.reduce((a,c)=>compareForSort(c,a)>0?c:a) : null;
+  }
+  if(fname==='COALESCE'||fname==='IFNULL'){ for(const a of node.args){ const v=evalExpr(a,ctx,amb,schema); if(v!=null) return v; } return null; }
+  if(fname==='UPPER'){ const v=evalExpr(node.args[0],ctx,amb,schema); return v==null?null:String(v).toUpperCase(); }
+  if(fname==='LOWER'){ const v=evalExpr(node.args[0],ctx,amb,schema); return v==null?null:String(v).toLowerCase(); }
+  if(fname==='ROUND'){ const v=evalExpr(node.args[0],ctx,amb,schema); const d=node.args[1]?evalExpr(node.args[1],ctx,amb,schema):0; return v==null?null:Math.round(v*Math.pow(10,d))/Math.pow(10,d); }
+  throw new Error('Função "'+fname+'" não é suportada neste treinador.');
+}
+function buildFrom(schema,from,amb){
+  const t0=from.tables[0];
+  let rows=baseCtxRows(schema,t0.alias,t0.name);
+  for(let i=1;i<from.tables.length;i++){
+    const t=from.tables[i]; const right=baseCtxRows(schema,t.alias,t.name); const out=[];
+    for(const r of rows) for(const r2 of right) out.push(mergeCtx(r,r2));
+    rows=out;
+  }
+  for(const j of from.joins){
+    const right=baseCtxRows(schema,j.table.alias,j.table.name); const out=[];
+    for(const r of rows){
+      let matched=false;
+      for(const r2 of right){
+        const merged=mergeCtx(r,r2);
+        if(evalExpr(j.on,{row:merged,group:null},amb,schema)){ out.push(merged); matched=true; }
+      }
+      if(!matched && j.type==='LEFT') out.push(mergeCtx(r,nullCtxFor(schema,j.table.alias,j.table.name)));
+    }
+    rows=out;
+  }
+  return rows;
+}
+function expandStarCols(schema,ctxRow,participating,onlyTable){
+  const out=[];
+  const order=onlyTable?[onlyTable.toUpperCase()]:ctxRow.aliasOrder;
+  order.forEach(alias=>{
+    const p=participating.find(p=>p.alias.toUpperCase()===alias);
+    const cols=p?getTable(schema,p.name).columns:Object.keys(ctxRow.byAlias[alias]||{});
+    cols.forEach(c=>out.push(ctxRow.byAlias[alias][c]));
+  });
+  return out;
+}
+function projectRow(schema,items,ctx,amb,participating){
+  const out=[];
+  items.forEach(it=>{
+    if(it.expr.type==='star'){
+      const row=ctx.row || (ctx.group && ctx.group[0]);
+      out.push(...expandStarCols(schema,row,participating,null));
+    } else if(it.expr.type==='starQualified'){
+      const row=ctx.row || (ctx.group && ctx.group[0]);
+      out.push(...expandStarCols(schema,row,participating,it.expr.table));
+    } else {
+      out.push(evalExpr(it.expr,ctx,amb,schema));
+    }
+  });
+  return out;
+}
+function columnLabel(it,idx){
+  if(it.alias) return it.alias;
+  if(it.expr.type==='col') return it.expr.name;
+  if(it.expr.type==='star') return '*';
+  if(it.expr.type==='starQualified') return it.expr.table+'.*';
+  if(it.expr.type==='call') return it.expr.name;
+  return 'col'+(idx+1);
+}
+function executeSelect(ast,schema){
+  const participating=collectParticipating(ast.from);
+  participating.forEach(p=>getTable(schema,p.name));
+  const amb=computeAmbiguous(schema,participating);
+  if(containsAgg(ast.where)) throw new Error('Não é possível usar funções de agregação (COUNT, SUM, AVG, MIN, MAX) no WHERE. Use HAVING para filtrar grupos.');
+  let rows=buildFrom(schema,ast.from,amb);
+  if(ast.where) rows=rows.filter(r=>!!evalExpr(ast.where,{row:r,group:null},amb,schema));
+  const hasAgg = ast.groupBy.length>0 || ast.selectItems.some(it=>containsAgg(it.expr)) || ast.having!=null;
+  const projected=[];
+  if(hasAgg){
+    let groups;
+    if(ast.groupBy.length>0){
+      const map=new Map(); const order=[];
+      for(const r of rows){
+        const key=ast.groupBy.map(g=>JSON.stringify(evalExpr(g,{row:r,group:null},amb,schema))).join('');
+        if(!map.has(key)){ map.set(key,[]); order.push(key); }
+        map.get(key).push(r);
+      }
+      groups=order.map(k=>map.get(k));
+    } else {
+      groups = rows.length? [rows] : [[]];
+    }
+    for(const g of groups){
+      const ctx={row:g[0]||null, group:g};
+      if(ast.having && !evalExpr(ast.having,ctx,amb,schema)) continue;
+      projected.push({out:projectRow(schema,ast.selectItems,ctx,amb,participating), ctx});
+    }
+  } else {
+    for(const r of rows){
+      const ctx={row:r,group:null};
+      projected.push({out:projectRow(schema,ast.selectItems,ctx,amb,participating), ctx});
+    }
+  }
+  if(ast.orderBy.length){
+    const aliasIndex={};
+    ast.selectItems.forEach((it,i)=>{ if(it.alias) aliasIndex[it.alias.toUpperCase()]=i; });
+    projected.sort((a,b)=>{
+      for(const ord of ast.orderBy){
+        let av,bv;
+        if(ord.expr.type==='pos'){ av=a.out[ord.expr.v-1]; bv=b.out[ord.expr.v-1]; }
+        else if(ord.expr.type==='col' && !ord.expr.table && aliasIndex[ord.expr.name]!==undefined){
+          const i=aliasIndex[ord.expr.name]; av=a.out[i]; bv=b.out[i];
+        }
+        else { av=evalExpr(ord.expr,a.ctx,amb,schema); bv=evalExpr(ord.expr,b.ctx,amb,schema); }
+        const c=compareForSort(av,bv);
+        if(c!==0) return ord.dir==='DESC'?-c:c;
+      }
+      return 0;
+    });
+  }
+  let finalRows=projected.map(p=>p.out);
+  if(ast.distinct){
+    const seen=new Set(); const uniq=[];
+    finalRows.forEach(row=>{ const k=JSON.stringify(row); if(!seen.has(k)){ seen.add(k); uniq.push(row); } });
+    finalRows=uniq;
+  }
+  const columns=[];
+  ast.selectItems.forEach((it,idx)=>{
+    if(it.expr.type==='star'){ participating.forEach(p=>getTable(schema,p.name).columns.forEach(c=>columns.push(c))); }
+    else if(it.expr.type==='starQualified'){ getTable(schema,participating.find(p=>p.alias.toUpperCase()===it.expr.table.toUpperCase()).name).columns.forEach(c=>columns.push(c)); }
+    else columns.push(columnLabel(it,idx));
+  });
+  return {columns, rows:finalRows};
+}
+function runSQL(text,schema){
+  const ast=parseSQL(text);
+  if(ast.type!=='select') throw new Error('Este comando não é um SELECT.');
+  return executeSelect(ast,schema);
+}
+
+/* ============================= EXECUTOR (DDL/DML/DCL/TCL/PROCEDURES) ============================= */
+function nextId(table){
+  let max=0;
+  table.rows.forEach(r=>{ if(typeof r[table.pk]==='number' && r[table.pk]>max) max=r[table.pk]; });
+  return max+1;
+}
+function execInsert(stmt,schema){
+  const table=getTable(schema,stmt.table);
+  stmt.valueRows.forEach(valExprs=>{
+    let row={};
+    if(stmt.columns){
+      if(stmt.columns.length!==valExprs.length) throw new Error('Número de valores não bate com o número de colunas informadas em '+stmt.table+'.');
+      table.columns.forEach(c=>row[c]=null);
+      stmt.columns.forEach((c,i)=>{
+        const cU=c.toUpperCase();
+        if(!table.columns.includes(cU)) throw new Error('Coluna "'+c+'" não existe em '+stmt.table+'.');
+        row[cU]=evalExpr(valExprs[i],{row:null,group:null},new Set(),schema);
+      });
+      if(row[table.pk]==null) row[table.pk]=nextId(table);
+    } else {
+      if(table.columns.length!==valExprs.length) throw new Error('Número de valores não bate com o número de colunas da tabela '+stmt.table+' ('+table.columns.length+').');
+      table.columns.forEach((c,i)=>{ row[c]=evalExpr(valExprs[i],{row:null,group:null},new Set(),schema); });
+    }
+    if(row[table.pk]!=null && table.rows.some(r=>valuesEqual(r[table.pk],row[table.pk]))) throw new Error('Violação de chave primária: já existe uma linha com '+table.pk+' = '+row[table.pk]+' em '+stmt.table+'.');
+    (table.notNull||[]).forEach(c=>{ if(row[c]==null) throw new Error('A coluna '+c+' não pode ser NULL em '+stmt.table+'.'); });
+    (table.unique||[]).forEach(c=>{ if(row[c]!=null && table.rows.some(r=>valuesEqual(r[c],row[c]))) throw new Error('Violação de restrição UNIQUE: já existe uma linha com '+c+' = '+row[c]+' em '+stmt.table+'.'); });
+    table.rows.push(row);
+  });
+}
+function execUpdate(stmt,schema){
+  const table=getTable(schema,stmt.table);
+  const amb=new Set();
+  table.rows.forEach(row=>{
+    const ctxRow=makeCtx(stmt.table,row);
+    if(stmt.where && !evalExpr(stmt.where,{row:ctxRow,group:null},amb,schema)) return;
+    const newVals={};
+    stmt.sets.forEach(s=>{
+      const cU=s.col.toUpperCase();
+      if(!table.columns.includes(cU)) throw new Error('Coluna "'+s.col+'" não existe em '+stmt.table+'.');
+      newVals[cU]=evalExpr(s.expr,{row:ctxRow,group:null},amb,schema);
+    });
+    Object.assign(row,newVals);
+  });
+}
+function execDelete(stmt,schema){
+  const table=getTable(schema,stmt.table);
+  const amb=new Set();
+  if(!stmt.where){ table.rows=[]; return; }
+  table.rows=table.rows.filter(row=>{
+    const ctxRow=makeCtx(stmt.table,row);
+    return !evalExpr(stmt.where,{row:ctxRow,group:null},amb,schema);
+  });
+}
+function execCreateTable(stmt,schema){
+  const name=stmt.name.toUpperCase();
+  if(schema[name]) throw new Error('A tabela '+name+' já existe.');
+  const columns=stmt.columns.map(c=>c.name);
+  const notNull=stmt.columns.filter(c=>c.notNull).map(c=>c.name);
+  const unique=stmt.columns.filter(c=>c.unique).map(c=>c.name);
+  const types={}; stmt.columns.forEach(c=>types[c.name]=c.typeStr.toUpperCase());
+  schema[name]={columns,pk:stmt.pk,notNull,unique,types,foreignKeys:stmt.foreignKeys||[],rows:[]};
+}
+function execAlterAddColumn(stmt,schema){
+  const table=getTable(schema,stmt.table); const c=stmt.colName.toUpperCase();
+  if(table.columns.includes(c)) throw new Error('A coluna '+c+' já existe em '+stmt.table+'.');
+  table.columns.push(c); table.types[c]=stmt.typeStr.toUpperCase();
+  if(stmt.notNull) table.notNull.push(c);
+  table.rows.forEach(r=>r[c]=null);
+}
+function execAlterDropColumn(stmt,schema){
+  const table=getTable(schema,stmt.table); const c=stmt.colName.toUpperCase();
+  if(!table.columns.includes(c)) throw new Error('A coluna '+c+' não existe em '+stmt.table+'.');
+  if(c===table.pk) throw new Error('Não é possível remover a coluna de chave primária ('+c+').');
+  table.columns=table.columns.filter(x=>x!==c);
+  delete table.types[c];
+  table.notNull=(table.notNull||[]).filter(x=>x!==c);
+  table.unique=(table.unique||[]).filter(x=>x!==c);
+  table.rows.forEach(r=>delete r[c]);
+}
+function execAlterModifyColumn(stmt,schema){
+  const table=getTable(schema,stmt.table); const c=stmt.colName.toUpperCase();
+  if(!table.columns.includes(c)) throw new Error('A coluna '+c+' não existe em '+stmt.table+'.');
+  table.types[c]=stmt.typeStr.toUpperCase();
+}
+function execAlterAddFk(stmt,schema){
+  const table=getTable(schema,stmt.table);
+  getTable(schema,stmt.refTable);
+  table.foreignKeys=table.foreignKeys||[];
+  table.foreignKeys.push({col:stmt.col.toUpperCase(),refTable:stmt.refTable.toUpperCase(),refCol:stmt.refCol.toUpperCase()});
+}
+function execDropTable(stmt,schema){
+  const name=stmt.name.toUpperCase();
+  if(!schema[name]) throw new Error('A tabela '+name+' não existe.');
+  delete schema[name];
+}
+function execGrant(stmt,schema){
+  const perm=getTable(schema,'PERMISSAO');
+  stmt.privileges.forEach(priv=>{
+    const p=priv.toUpperCase(), u=stmt.user, t=stmt.table.toUpperCase();
+    const exists=perm.rows.some(r=>r.USUARIO.toLowerCase()===u.toLowerCase() && r.TABELA===t && r.PRIVILEGIO===p);
+    if(!exists) perm.rows.push({IDPERMISSAO:nextId(perm),USUARIO:u,TABELA:t,PRIVILEGIO:p});
+  });
+}
+function execRevoke(stmt,schema){
+  const perm=getTable(schema,'PERMISSAO');
+  stmt.privileges.forEach(priv=>{
+    const p=priv.toUpperCase(), u=stmt.user, t=stmt.table.toUpperCase();
+    perm.rows=perm.rows.filter(r=>!(r.USUARIO.toLowerCase()===u.toLowerCase() && r.TABELA===t && r.PRIVILEGIO===p));
+  });
+}
+function execCreateProcedure(stmt,schema,procRegistry){ procRegistry[stmt.name.toUpperCase()]=stmt; }
+function execExec(stmt,schema,procRegistry,txStack){
+  const proc=procRegistry[stmt.name.toUpperCase()];
+  if(!proc) throw new Error('A procedure "'+stmt.name+'" não existe. Ela precisa ser criada com CREATE PROCEDURE antes de ser chamada.');
+  if(stmt.args.length!==proc.params.length) throw new Error('A procedure '+stmt.name+' espera '+proc.params.length+' parâmetro(s), mas recebeu '+stmt.args.length+'.');
+  const params={};
+  proc.params.forEach((p,i)=>{ params[p.name]=evalExpr(stmt.args[i],{row:null,group:null},new Set(),schema); });
+  const saved=CURRENT_PARAMS; CURRENT_PARAMS=params;
+  let lastResult=null;
+  try{ proc.body.forEach(bodyStmt=>{ lastResult=execOne(bodyStmt,schema,procRegistry,txStack); }); }
+  finally{ CURRENT_PARAMS=saved; }
+  return lastResult;
+}
+function execOne(stmt,schema,procRegistry,txStack){
+  switch(stmt.type){
+    case 'select': return executeSelect(stmt,schema);
+    case 'insert': execInsert(stmt,schema); return null;
+    case 'update': execUpdate(stmt,schema); return null;
+    case 'delete': execDelete(stmt,schema); return null;
+    case 'createTable': execCreateTable(stmt,schema); return null;
+    case 'alterAddColumn': execAlterAddColumn(stmt,schema); return null;
+    case 'alterDropColumn': execAlterDropColumn(stmt,schema); return null;
+    case 'alterModifyColumn': execAlterModifyColumn(stmt,schema); return null;
+    case 'alterAddFk': execAlterAddFk(stmt,schema); return null;
+    case 'dropTable': execDropTable(stmt,schema); return null;
+    case 'grant': execGrant(stmt,schema); return null;
+    case 'revoke': execRevoke(stmt,schema); return null;
+    case 'begin': txStack.push(JSON.parse(JSON.stringify(schema))); return null;
+    case 'commit': if(!txStack.length) throw new Error('COMMIT sem uma transação ativa (use BEGIN antes).'); txStack.pop(); return null;
+    case 'rollback': { if(!txStack.length) throw new Error('ROLLBACK sem uma transação ativa (use BEGIN antes).'); const snap=txStack.pop(); Object.keys(schema).forEach(k=>delete schema[k]); Object.assign(schema,snap); return null; }
+    case 'createProcedure': execCreateProcedure(stmt,schema,procRegistry); return null;
+    case 'exec': return execExec(stmt,schema,procRegistry,txStack);
+    default: throw new Error('Comando não suportado: '+stmt.type);
+  }
+}
+function runScript(stmts,schema,procRegistry){
+  const txStack=[]; let lastResult=null;
+  stmts.forEach(s=>{ lastResult=execOne(s,schema,procRegistry,txStack); });
+  return lastResult;
+}
+function runScriptText(text,schema,procRegistry){ return runScript(parseScriptText(text),schema,procRegistry||{}); }
+
+/* ============================= SANDBOX / GRADING ============================= */
+function cloneSchema(schema){ return JSON.parse(JSON.stringify(schema)); }
+function normalizeValue(v){
+  if(v===null||v===undefined) return null;
+  if(typeof v==='number') return Math.round(v*10000)/10000;
+  if(typeof v==='string') return v.trim().toLowerCase();
+  return v;
+}
+function normalizeRow(row){ const out={}; Object.keys(row).sort().forEach(k=>{ out[k]=normalizeValue(row[k]); }); return out; }
+function extractWatchState(schema,watchTables){
+  const out={};
+  watchTables.forEach(t=>{
+    const T=t.toUpperCase(); const tbl=schema[T];
+    out[T]=tbl? tbl.rows.map(normalizeRow) : null;
+  });
+  return out;
+}
+function stateEqual(a,b){
+  const keys=new Set([...Object.keys(a),...Object.keys(b)]);
+  for(const k of keys){
+    const ra=a[k], rb=b[k];
+    if((ra===null)!==(rb===null)) return false;
+    if(ra===null) continue;
+    if(ra.length!==rb.length) return false;
+    const sa=ra.map(r=>JSON.stringify(r)).sort();
+    const sb=rb.map(r=>JSON.stringify(r)).sort();
+    if(JSON.stringify(sa)!==JSON.stringify(sb)) return false;
+  }
+  return true;
+}
+function extractSchemaShape(schema,watchTables){
+  const out={};
+  watchTables.forEach(t=>{
+    const T=t.toUpperCase(); const tbl=schema[T];
+    if(!tbl){ out[T]=null; return; }
+    out[T]={
+      columns:[...tbl.columns].sort(),
+      pk:tbl.pk||null,
+      notNull:[...(tbl.notNull||[])].sort(),
+      unique:[...(tbl.unique||[])].sort(),
+      types:tbl.columns.reduce((acc,c)=>{ acc[c]=((tbl.types&&tbl.types[c])||'').toUpperCase().replace(/\s+/g,''); return acc; },{}),
+      foreignKeys:(tbl.foreignKeys||[]).map(fk=>fk.col+'->'+fk.refTable+'.'+fk.refCol).sort()
+    };
+  });
+  return out;
+}
+function schemaShapeEqual(a,b){ return JSON.stringify(a)===JSON.stringify(b); }
+
+function gradeQuery(userText,canonicalText){
+  const schema=baseSchema();
+  const canAst=parseSQL(canonicalText);
+  const expected=executeSelect(canAst,schema);
+  let userAst;
+  try{ userAst=parseSQL(userText); } catch(e){ return {ok:false,message:e.message}; }
+  if(userAst.type!=='select') return {ok:false,message:'Use apenas comandos SELECT nesta lição.'};
+  let actual;
+  try{ actual=executeSelect(userAst,schema); } catch(e){ return {ok:false,message:e.message}; }
+  const orderMatters=canAst.orderBy && canAst.orderBy.length>0;
+  const eRows=expected.rows.map(r=>r.map(normalizeValue));
+  const aRows=actual.rows.map(r=>r.map(normalizeValue));
+  if(eRows.length!==aRows.length) return {ok:false,reason:'rows',expected,actual};
+  if(eRows.length && aRows.length && eRows[0].length!==aRows[0].length) return {ok:false,reason:'cols',expected,actual};
+  if(orderMatters){
+    for(let i=0;i<eRows.length;i++) if(JSON.stringify(eRows[i])!==JSON.stringify(aRows[i])) return {ok:false,reason:'order',expected,actual};
+    return {ok:true,expected,actual};
+  }
+  const es=eRows.map(r=>JSON.stringify(r)).sort(), as=aRows.map(r=>JSON.stringify(r)).sort();
+  return {ok:JSON.stringify(es)===JSON.stringify(as), reason:'content', expected, actual};
+}
+
+function gradeMutation(userText,canonicalText,opts){
+  const schemaCanon=baseSchema(), schemaUser=baseSchema();
+  const regCanon={}, regUser={};
+  try{
+    if(opts.seed){ runScriptText(opts.seed,schemaCanon,regCanon); runScriptText(opts.seed,schemaUser,regUser); }
+  }catch(e){ return {ok:false,systemError:true,message:'Erro ao preparar o cenário (avise o autor): '+e.message}; }
+  try{ runScriptText(canonicalText,schemaCanon,regCanon); }
+  catch(e){ return {ok:false,systemError:true,message:'Erro no gabarito (avise o autor): '+e.message}; }
+  let userStmts;
+  try{ userStmts=parseScriptText(userText); }
+  catch(e){ return {ok:false,message:e.message}; }
+  if(opts.requireTypes){
+    const got=userStmts.map(s=>s.type).join(',');
+    const want=opts.requireTypes.join(',');
+    if(got!==want) return {ok:false, message:'Sua resposta precisa seguir esta estrutura de comandos: '+opts.requireTypes.join(' → ')+'.'};
+  }
+  try{ runScript(userStmts,schemaUser,regUser); }
+  catch(e){ return {ok:false,message:e.message,userSchema:schemaUser}; }
+  if(opts.compareMode==='schema'){
+    const a=extractSchemaShape(schemaCanon,opts.watch), b=extractSchemaShape(schemaUser,opts.watch);
+    return {ok:schemaShapeEqual(a,b), reason: schemaShapeEqual(a,b)?null:'schema', userSchema:schemaUser, canonSchema:schemaCanon};
+  }
+  const a=extractWatchState(schemaCanon,opts.watch), b=extractWatchState(schemaUser,opts.watch);
+  return {ok:stateEqual(a,b), reason: stateEqual(a,b)?null:'rows', userSchema:schemaUser, canonSchema:schemaCanon};
+}
+
+function gradeProcedure(userText,canonicalText,testCalls){
+  let canonProcAst;
+  try{ canonProcAst=parseSQL(canonicalText); }catch(e){ return {ok:false,systemError:true,message:'Erro no gabarito: '+e.message}; }
+  let userStmts;
+  try{ userStmts=parseScriptText(userText); }
+  catch(e){ return {ok:false,message:e.message}; }
+  const userProcAst=userStmts.find(s=>s.type==='createProcedure');
+  if(!userProcAst) return {ok:false,message:'Sua resposta precisa conter um comando CREATE PROCEDURE.'};
+  for(const call of testCalls){
+    const schemaA=baseSchema(), schemaB=baseSchema();
+    const regA={}, regB={};
+    try{ execCreateProcedure(canonProcAst,schemaA,regA); }catch(e){ return {ok:false,systemError:true,message:'Erro no gabarito: '+e.message}; }
+    try{ execCreateProcedure(userProcAst,schemaB,regB); }catch(e){ return {ok:false,message:e.message}; }
+    const argExprs=call.args.map(v=> v===null? {type:'null'} : (typeof v==='string'? {type:'lit',v,isString:true} : {type:'lit',v}));
+    let resA,resB;
+    try{ resA=execExec({type:'exec',name:canonProcAst.name,args:argExprs},schemaA,regA,[]); }
+    catch(e){ return {ok:false,systemError:true,message:'Erro no gabarito ao executar: '+e.message}; }
+    try{ resB=execExec({type:'exec',name:userProcAst.name,args:argExprs},schemaB,regB,[]); }
+    catch(e){ return {ok:false,message:'Erro ao executar sua procedure com os argumentos '+JSON.stringify(call.args)+': '+e.message}; }
+    if(call.resultKind==='query'){
+      const rowsA=(resA?resA.rows:[]).map(r=>r.map(normalizeValue));
+      const rowsB=(resB?resB.rows:[]).map(r=>r.map(normalizeValue));
+      const sa=rowsA.map(r=>JSON.stringify(r)).sort(), sb=rowsB.map(r=>JSON.stringify(r)).sort();
+      if(JSON.stringify(sa)!==JSON.stringify(sb)) return {ok:false,message:'O resultado retornado não bateu para a chamada com argumentos '+JSON.stringify(call.args)+'.'};
+    } else {
+      const a=extractWatchState(schemaA,call.watch), b=extractWatchState(schemaB,call.watch);
+      if(!stateEqual(a,b)) return {ok:false,message:'Os dados finais não bateram para a chamada com argumentos '+JSON.stringify(call.args)+'.'};
+    }
+  }
+  return {ok:true};
+}
+
+
+/* Conteúdo completo do SQL Dojo, organizado por categoria (CATEGORIES) -> tópicos (TOPICS) -> questões (qs).
+   Cada tópico tem: id, title, category, kind ('query'|'mutation'|'procedure'), hint, summary, qs[]
+   query: {p, sql}
+   mutation: {p, sql, watch:[tabelas], compareMode?, seed?, requireTypes?}
+   procedure: {p, sql, testCalls:[{args, watch?|resultKind}]}
+*/
+const CATEGORIES = [
+  {id:'dql', title:'DQL — Consultas', emoji:'🔍'},
+  {id:'dml', title:'DML — Manipulação de Dados', emoji:'✏️'},
+  {id:'ddl', title:'DDL — Definição de Dados', emoji:'🏗️'},
+  {id:'tcl', title:'TCL — Transações', emoji:'🔄'},
+  {id:'dcl', title:'DCL — Controle de Acesso', emoji:'🔐'},
+  {id:'proc', title:'Procedures & Cenários Reais', emoji:'🚀'}
+];
+
+const TOPICS = [
+/* ======================= DQL ======================= */
+{id:'select-basico', title:'SELECT básico', category:'dql', kind:'query',
+  hint:'SELECT coluna1, coluna2 FROM tabela; — liste só as colunas pedidas, na ordem pedida.',
+  summary:'O SELECT define QUAIS colunas aparecem no resultado (a "projeção") e o FROM define de qual tabela elas vêm. Use * para trazer todas as colunas, ou liste nomes separados por vírgula para trazer só algumas. Ex.: SELECT NOME, EMAIL FROM ALUNO.',
+  qs:[
+    {p:'Liste o nome e o e-mail de todos os alunos.', sql:"SELECT NOME, EMAIL FROM ALUNO"},
+    {p:'Mostre todas as colunas de todos os cursos.', sql:"SELECT * FROM CURSO"},
+    {p:'Liste o nome de cada curso e sua carga horária, renomeando a carga horária para HORAS.', sql:"SELECT NOME, CARGA_HORARIA AS HORAS FROM CURSO"},
+    {p:'Liste o nome e o sexo de todos os alunos.', sql:"SELECT NOME, SEXO FROM ALUNO"},
+    {p:'Liste o nome e a data de nascimento de todos os alunos.', sql:"SELECT NOME, NASCIMENTO FROM ALUNO"},
+    {p:'Liste o nome de cada curso e o seu valor, renomeando o valor para PRECO.', sql:"SELECT NOME, VALOR AS PRECO FROM CURSO"}
+  ]},
+{id:'where-comp', title:'Filtros com WHERE', category:'dql', kind:'query',
+  hint:'WHERE coluna operador valor — operadores: = <> < > <= >=',
+  summary:'O WHERE filtra quais LINHAS entram no resultado, avaliando uma condição para cada linha da tabela. Só passam as linhas em que a condição é verdadeira. Ex.: WHERE VALOR > 400 mantém só cursos com valor acima de 400.',
+  qs:[
+    {p:"Liste nome e sexo dos alunos do sexo feminino.", sql:"SELECT NOME, SEXO FROM ALUNO WHERE SEXO = 'F'"},
+    {p:"Liste nome e sexo dos alunos do sexo masculino.", sql:"SELECT NOME, SEXO FROM ALUNO WHERE SEXO = 'M'"},
+    {p:"Liste nome e valor dos cursos com valor maior que 400.", sql:"SELECT NOME, VALOR FROM CURSO WHERE VALOR > 400"},
+    {p:"Liste nome e carga horária dos cursos com carga horária de no mínimo 25 horas.", sql:"SELECT NOME, CARGA_HORARIA FROM CURSO WHERE CARGA_HORARIA >= 25"},
+    {p:"Liste o id do aluno e a nota das matrículas com nota menor que 6.", sql:"SELECT ID_ALUNO, NOTA FROM MATRICULA WHERE NOTA < 6"},
+    {p:"Liste nome e valor dos cursos com valor diferente de 300.", sql:"SELECT NOME, VALOR FROM CURSO WHERE VALOR <> 300"}
+  ]},
+{id:'logico', title:'AND / OR / NOT / IN / BETWEEN', category:'dql', kind:'query',
+  hint:'Combine condições com AND e OR. BETWEEN a AND b é inclusivo. IN(a,b,c) é um atalho para "= a OU = b OU = c".',
+  summary:'AND exige que todas as condições sejam verdadeiras; OR basta uma. BETWEEN x AND y testa um intervalo fechado (inclui as pontas). IN(lista) testa se o valor está numa lista. NOT inverte o resultado de uma condição.',
+  qs:[
+    {p:"Liste nome e sexo dos alunos do sexo feminino nascidas a partir de 2001-01-01 (inclusive).", sql:"SELECT NOME, SEXO FROM ALUNO WHERE SEXO = 'F' AND NASCIMENTO >= '2001-01-01'"},
+    {p:"Liste nome e valor dos cursos com valor entre 300 e 500 (inclusive), usando BETWEEN.", sql:"SELECT NOME, VALOR FROM CURSO WHERE VALOR BETWEEN 300 AND 500"},
+    {p:"Liste nome e carga horária dos cursos com carga horária de 20 ou 30 horas, usando IN.", sql:"SELECT NOME, CARGA_HORARIA FROM CURSO WHERE CARGA_HORARIA IN (20,30)"},
+    {p:"Liste nome e sexo dos alunos que não são do sexo masculino.", sql:"SELECT NOME, SEXO FROM ALUNO WHERE SEXO <> 'M'"},
+    {p:"Liste nome e valor dos cursos que custam menos que 300 ou mais que 600.", sql:"SELECT NOME, VALOR FROM CURSO WHERE VALOR < 300 OR VALOR > 600"},
+    {p:"Liste o id do aluno e a nota das matrículas com nota entre 7 e 9, usando BETWEEN.", sql:"SELECT ID_ALUNO, NOTA FROM MATRICULA WHERE NOTA BETWEEN 7 AND 9"}
+  ]},
+{id:'like-null', title:'LIKE e valores NULL', category:'dql', kind:'query',
+  hint:"LIKE 'A%' começa com A · LIKE '%r%' contém r · IS NULL / IS NOT NULL testa ausência de valor (NULL nunca se compara com =).",
+  summary:"LIKE compara texto usando curingas: % substitui qualquer sequência de caracteres, _ substitui exatamente um caractere. NULL representa 'sem valor' e só pode ser testado com IS NULL / IS NOT NULL — nunca com = NULL.",
+  qs:[
+    {p:"Liste o nome dos alunos cujo nome comece com a letra 'A'.", sql:"SELECT NOME FROM ALUNO WHERE NOME LIKE 'A%'"},
+    {p:"Liste o nome dos alunos cujo nome contenha a letra 'r'.", sql:"SELECT NOME FROM ALUNO WHERE NOME LIKE '%r%'"},
+    {p:"Liste o nome dos alunos que não possuem e-mail cadastrado.", sql:"SELECT NOME FROM ALUNO WHERE EMAIL IS NULL"},
+    {p:"Liste o nome dos alunos que possuem e-mail cadastrado.", sql:"SELECT NOME FROM ALUNO WHERE EMAIL IS NOT NULL"},
+    {p:"Liste o id do aluno e a nota das matrículas que ainda não foram avaliadas (nota nula).", sql:"SELECT ID_ALUNO, NOTA FROM MATRICULA WHERE NOTA IS NULL"},
+    {p:"Liste o nome dos cursos cujo nome contenha a palavra 'SQL'.", sql:"SELECT NOME FROM CURSO WHERE NOME LIKE '%SQL%'"}
+  ]},
+{id:'order-by', title:'Ordenação (ORDER BY)', category:'dql', kind:'query',
+  hint:'ORDER BY coluna ASC|DESC — pode ordenar por várias colunas, pela posição no SELECT ou pelo apelido (alias).',
+  summary:'ORDER BY define a ordem das linhas no resultado (não afeta quais linhas aparecem, só a ordem). ASC é o padrão (crescente); DESC inverte. Com várias colunas, a segunda decide o empate da primeira.',
+  qs:[
+    {p:"Liste nome e data de nascimento dos alunos, do mais velho para o mais novo.", sql:"SELECT NOME, NASCIMENTO FROM ALUNO ORDER BY NASCIMENTO ASC"},
+    {p:"Liste nome e valor dos cursos, do mais caro para o mais barato.", sql:"SELECT NOME, VALOR FROM CURSO ORDER BY VALOR DESC"},
+    {p:"Liste o nome de todos os alunos em ordem alfabética.", sql:"SELECT NOME FROM ALUNO ORDER BY NOME ASC"},
+    {p:"Liste nome e sexo dos alunos, ordenando primeiro por sexo e depois por nome.", sql:"SELECT NOME, SEXO FROM ALUNO ORDER BY SEXO, NOME"},
+    {p:"Liste id do aluno e nota das matrículas já avaliadas, da maior para a menor nota.", sql:"SELECT ID_ALUNO, NOTA FROM MATRICULA WHERE NOTA IS NOT NULL ORDER BY NOTA DESC"},
+    {p:"Liste nome e carga horária dos cursos, ordenando pela 2ª coluna exibida em ordem decrescente.", sql:"SELECT NOME, CARGA_HORARIA FROM CURSO ORDER BY 2 DESC"}
+  ]},
+{id:'agregacao', title:'Funções de agregação', category:'dql', kind:'query',
+  hint:'COUNT(*), SUM(coluna), AVG(coluna), MIN(coluna), MAX(coluna) resumem toda a tabela em um único valor.',
+  summary:'Funções de agregação recebem VÁRIAS linhas e devolvem UM valor. COUNT(*) conta linhas; COUNT(coluna) conta valores não nulos; SUM soma; AVG faz média (ignorando NULL); MIN/MAX pegam o menor/maior valor.',
+  qs:[
+    {p:"Quantos alunos existem ao todo? Renomeie o resultado para TOTAL.", sql:"SELECT COUNT(*) AS TOTAL FROM ALUNO"},
+    {p:"Qual é a média das notas já avaliadas na tabela de matrículas? Renomeie para MEDIA.", sql:"SELECT AVG(NOTA) AS MEDIA FROM MATRICULA"},
+    {p:"Qual é o valor do curso mais caro? Renomeie para MAIOR_VALOR.", sql:"SELECT MAX(VALOR) AS MAIOR_VALOR FROM CURSO"},
+    {p:"Qual é o valor do curso mais barato? Renomeie para MENOR_VALOR.", sql:"SELECT MIN(VALOR) AS MENOR_VALOR FROM CURSO"},
+    {p:"Qual é a soma da carga horária de todos os cursos? Renomeie para TOTAL_HORAS.", sql:"SELECT SUM(CARGA_HORARIA) AS TOTAL_HORAS FROM CURSO"},
+    {p:"Quantas matrículas já possuem nota lançada (não nula)? Renomeie para TOTAL.", sql:"SELECT COUNT(NOTA) AS TOTAL FROM MATRICULA"}
+  ]},
+{id:'group-by', title:'Agrupamento (GROUP BY / HAVING)', category:'dql', kind:'query',
+  hint:'GROUP BY agrupa linhas por uma coluna, aplicando as agregações dentro de cada grupo; HAVING filtra os grupos depois de agregar (WHERE não pode usar agregações).',
+  summary:'GROUP BY divide as linhas em grupos (um grupo por valor distinto da coluna) e cada função de agregação passa a calcular DENTRO de cada grupo. HAVING é o WHERE dos grupos — filtra depois de agregar, por isso pode usar COUNT/SUM/AVG etc.',
+  qs:[
+    {p:"Para cada sexo, mostre a quantidade de alunos. Colunas: SEXO, QTD.", sql:"SELECT SEXO, COUNT(*) AS QTD FROM ALUNO GROUP BY SEXO"},
+    {p:"Para cada curso (id), mostre quantas matrículas ele possui. Colunas: ID_CURSO, QTD.", sql:"SELECT ID_CURSO, COUNT(*) AS QTD FROM MATRICULA GROUP BY ID_CURSO"},
+    {p:"Para cada aluno (id), mostre a média das notas obtidas. Colunas: ID_ALUNO, MEDIA.", sql:"SELECT ID_ALUNO, AVG(NOTA) AS MEDIA FROM MATRICULA GROUP BY ID_ALUNO"},
+    {p:"Para cada curso (id), mostre a maior nota obtida nele. Colunas: ID_CURSO, MAIOR_NOTA.", sql:"SELECT ID_CURSO, MAX(NOTA) AS MAIOR_NOTA FROM MATRICULA GROUP BY ID_CURSO"},
+    {p:"Para cada sexo, mostre a quantidade de alunos, exibindo apenas grupos com mais de 5 alunos (use HAVING).", sql:"SELECT SEXO, COUNT(*) AS QTD FROM ALUNO GROUP BY SEXO HAVING COUNT(*) > 5"},
+    {p:"Para cada aluno (id), mostre quantas matrículas possui, exibindo apenas quem tem mais de 1 matrícula (use HAVING).", sql:"SELECT ID_ALUNO, COUNT(*) AS QTD FROM MATRICULA GROUP BY ID_ALUNO HAVING COUNT(*) > 1"}
+  ]},
+{id:'join-inner', title:'JOIN entre duas tabelas', category:'dql', kind:'query',
+  hint:'SELECT ... FROM T1 A INNER JOIN T2 B ON A.chave = B.chave — dê alias curtos (A, B) para simplificar.',
+  summary:'INNER JOIN combina linhas de duas tabelas quando a condição do ON é verdadeira, trazendo só os pares que casam (quem não tem correspondência de um lado, some do resultado). É assim que se junta informação espalhada em tabelas diferentes.',
+  qs:[
+    {p:"Liste o nome do aluno e a cidade onde ele mora (apenas quem tem endereço cadastrado).", sql:"SELECT A.NOME, E.CIDADE FROM ALUNO A INNER JOIN ENDERECO E ON A.IDALUNO = E.ID_ALUNO"},
+    {p:"Liste o nome do aluno, o tipo e o número de cada telefone que ele possui.", sql:"SELECT A.NOME, T.TIPO, T.NUMERO FROM ALUNO A INNER JOIN TELEFONE T ON A.IDALUNO = T.ID_ALUNO"},
+    {p:"Liste o nome e a UF dos alunos que moram no Rio de Janeiro (RJ).", sql:"SELECT A.NOME, E.UF FROM ALUNO A INNER JOIN ENDERECO E ON A.IDALUNO = E.ID_ALUNO WHERE E.UF = 'RJ'"},
+    {p:"Liste o nome do aluno e a nota, apenas das matrículas já avaliadas (nota não nula).", sql:"SELECT A.NOME, M.NOTA FROM ALUNO A INNER JOIN MATRICULA M ON A.IDALUNO = M.ID_ALUNO WHERE M.NOTA IS NOT NULL"},
+    {p:"Liste o nome do curso e o id do aluno matriculado no curso 'SQL Basico'.", sql:"SELECT C.NOME, M.ID_ALUNO FROM CURSO C INNER JOIN MATRICULA M ON C.IDCURSO = M.ID_CURSO WHERE C.NOME = 'SQL Basico'"},
+    {p:"Liste o nome do aluno e o número do celular de cada aluno (tipo 'CEL').", sql:"SELECT A.NOME, T.NUMERO FROM ALUNO A INNER JOIN TELEFONE T ON A.IDALUNO = T.ID_ALUNO WHERE T.TIPO = 'CEL'"}
+  ]},
+{id:'left-join', title:'LEFT JOIN e COALESCE', category:'dql', kind:'query',
+  hint:'LEFT JOIN mantém todas as linhas da tabela da esquerda mesmo sem correspondência (traz NULL). COALESCE(a,b) devolve a se não for nulo, senão b.',
+  summary:'LEFT JOIN é como o INNER JOIN, mas garante que NENHUMA linha da tabela à esquerda do JOIN se perca: quando não há correspondência à direita, as colunas da direita vêm como NULL. COALESCE/IFNULL trocam esse NULL por um valor padrão mais legível.',
+  qs:[
+    {p:"Liste o nome de todos os alunos e a cidade onde moram; para quem não tem endereço cadastrado, mostre 'Sem endereco'.", sql:"SELECT A.NOME, COALESCE(E.CIDADE,'Sem endereco') AS CIDADE FROM ALUNO A LEFT JOIN ENDERECO E ON A.IDALUNO = E.ID_ALUNO"},
+    {p:"Liste o nome de todos os alunos e o número de telefone; para quem não tem telefone cadastrado, mostre 'Sem telefone'.", sql:"SELECT A.NOME, COALESCE(T.NUMERO,'Sem telefone') AS TELEFONE FROM ALUNO A LEFT JOIN TELEFONE T ON A.IDALUNO = T.ID_ALUNO"},
+    {p:"Liste o nome de todos os alunos e a UF onde moram, incluindo os que não têm endereço cadastrado (mostrando NULL nesse caso).", sql:"SELECT A.NOME, E.UF FROM ALUNO A LEFT JOIN ENDERECO E ON A.IDALUNO = E.ID_ALUNO"},
+    {p:"Liste o nome dos alunos que NÃO possuem endereço cadastrado, usando LEFT JOIN.", sql:"SELECT A.NOME FROM ALUNO A LEFT JOIN ENDERECO E ON A.IDALUNO = E.ID_ALUNO WHERE E.IDENDERECO IS NULL"},
+    {p:"Liste o nome dos alunos que NÃO possuem telefone cadastrado, usando LEFT JOIN.", sql:"SELECT A.NOME FROM ALUNO A LEFT JOIN TELEFONE T ON A.IDALUNO = T.ID_ALUNO WHERE T.IDTELEFONE IS NULL"},
+    {p:"Liste o nome de todos os alunos e sua nota (se o aluno não tiver nenhuma matrícula, mostre 'Sem nota' no lugar), usando LEFT JOIN e COALESCE.", sql:"SELECT A.NOME, COALESCE(M.NOTA,'Sem nota') AS NOTA FROM ALUNO A LEFT JOIN MATRICULA M ON A.IDALUNO = M.ID_ALUNO"}
+  ]},
+{id:'multi-join', title:'JOIN com 3 tabelas + GROUP BY', category:'dql', kind:'query',
+  hint:'Encadeie um segundo INNER JOIN normalmente. Ao juntar ALUNO e CURSO, a coluna NOME existe nas duas — sempre qualifique com o alias.',
+  summary:'Nada impede encadear vários JOINs seguidos para juntar 3+ tabelas — cada JOIN adicional só precisa do seu próprio ON. Quando duas tabelas na consulta têm uma coluna de mesmo nome, ela fica "ambígua" e precisa ser escrita como ALIAS.coluna.',
+  qs:[
+    {p:"Liste o nome do aluno e o nome do curso em que ele está matriculado (junte ALUNO, MATRICULA e CURSO).", sql:"SELECT A.NOME, C.NOME FROM ALUNO A INNER JOIN MATRICULA M ON A.IDALUNO = M.ID_ALUNO INNER JOIN CURSO C ON M.ID_CURSO = C.IDCURSO"},
+    {p:"Para cada curso, mostre o nome do curso e a quantidade de alunos matriculados nele.", sql:"SELECT C.NOME, COUNT(*) AS QTD FROM CURSO C INNER JOIN MATRICULA M ON C.IDCURSO = M.ID_CURSO GROUP BY C.NOME"},
+    {p:"Para cada curso, mostre o nome do curso e a média das notas dos alunos matriculados nele.", sql:"SELECT C.NOME, AVG(M.NOTA) AS MEDIA FROM CURSO C INNER JOIN MATRICULA M ON C.IDCURSO = M.ID_CURSO GROUP BY C.NOME"},
+    {p:"Liste o nome do aluno, o nome do curso e a nota, apenas das matrículas já avaliadas, ordenando da maior para a menor nota.", sql:"SELECT A.NOME, C.NOME, M.NOTA FROM ALUNO A INNER JOIN MATRICULA M ON A.IDALUNO = M.ID_ALUNO INNER JOIN CURSO C ON M.ID_CURSO = C.IDCURSO WHERE M.NOTA IS NOT NULL ORDER BY M.NOTA DESC"},
+    {p:"Para cada aluna do sexo feminino, mostre o nome dela e o nome dos cursos em que está matriculada.", sql:"SELECT A.NOME, C.NOME FROM ALUNO A INNER JOIN MATRICULA M ON A.IDALUNO = M.ID_ALUNO INNER JOIN CURSO C ON M.ID_CURSO = C.IDCURSO WHERE A.SEXO = 'F'"},
+    {p:"Mostre o nome de cada curso e sua média de notas, apenas para os cursos cuja média seja maior ou igual a 7 (use HAVING).", sql:"SELECT C.NOME, AVG(M.NOTA) AS MEDIA FROM CURSO C INNER JOIN MATRICULA M ON C.IDCURSO = M.ID_CURSO GROUP BY C.NOME HAVING AVG(M.NOTA) >= 7"}
+  ]},
+{id:'self-join', title:'Autorelacionamento (self-join)', category:'dql', kind:'query',
+  hint:'Uma tabela pode se juntar a si mesma: dê alias diferentes (A1, A2) para representar dois papéis (por exemplo, aluno e mentor).',
+  summary:'Quando uma tabela tem uma coluna que aponta para ela mesma (aqui, ALUNO.ID_MENTOR aponta para outro ALUNO.IDALUNO), você pode juntar a tabela com ela mesma usando dois alias diferentes — um para cada "papel" (ex.: A1 = aluno, A2 = mentor).',
+  qs:[
+    {p:"Liste o nome do aluno e o nome do seu mentor (apenas quem tem mentor).", sql:"SELECT A1.NOME, A2.NOME FROM ALUNO A1 INNER JOIN ALUNO A2 ON A1.ID_MENTOR = A2.IDALUNO"},
+    {p:"Liste, sem repetir, o nome dos alunos que são mentores de pelo menos um outro aluno.", sql:"SELECT DISTINCT A2.NOME FROM ALUNO A1 INNER JOIN ALUNO A2 ON A1.ID_MENTOR = A2.IDALUNO"},
+    {p:"Liste o nome dos alunos que NÃO têm mentor cadastrado.", sql:"SELECT NOME FROM ALUNO WHERE ID_MENTOR IS NULL"},
+    {p:"Para cada mentor, mostre o nome do mentor e quantos mentorados ele tem.", sql:"SELECT A2.NOME, COUNT(*) AS QTD FROM ALUNO A1 INNER JOIN ALUNO A2 ON A1.ID_MENTOR = A2.IDALUNO GROUP BY A2.NOME"},
+    {p:"Liste o nome do aluno e o nome do mentor, incluindo os alunos sem mentor (nesse caso, o nome do mentor aparece como NULL), usando LEFT JOIN.", sql:"SELECT A1.NOME, A2.NOME FROM ALUNO A1 LEFT JOIN ALUNO A2 ON A1.ID_MENTOR = A2.IDALUNO"},
+    {p:"Liste o nome do aluno e do mentor, apenas para os pares em que ambos são do sexo feminino.", sql:"SELECT A1.NOME, A2.NOME FROM ALUNO A1 INNER JOIN ALUNO A2 ON A1.ID_MENTOR = A2.IDALUNO WHERE A1.SEXO = 'F' AND A2.SEXO = 'F'"},
+    {p:"Conte quantos alunos têm mentor cadastrado. Renomeie para TOTAL.", sql:"SELECT COUNT(*) AS TOTAL FROM ALUNO WHERE ID_MENTOR IS NOT NULL"}
+  ]},
+{id:'subconsultas', title:'Subconsultas (subqueries)', category:'dql', kind:'query',
+  hint:'Uma consulta pode usar o resultado de outra: (SELECT ...) dentro do WHERE. Use = com subconsultas de 1 valor, ou IN com subconsultas de várias linhas.',
+  summary:'Uma subconsulta é um SELECT dentro de outro SELECT, geralmente no WHERE. Quando ela devolve um único valor, compare com = / > / <; quando devolve uma lista de valores, use IN (ou NOT IN). A subconsulta roda primeiro e o resultado dela alimenta a consulta de fora.',
+  qs:[
+    {p:"Liste o nome e o valor do curso mais caro, comparando o VALOR com o resultado de uma subconsulta com MAX.", sql:"SELECT NOME, VALOR FROM CURSO WHERE VALOR = (SELECT MAX(VALOR) FROM CURSO)"},
+    {p:"Liste o nome do aluno e a nota da(s) matrícula(s) com a maior nota entre todas as avaliadas.", sql:"SELECT A.NOME, M.NOTA FROM ALUNO A INNER JOIN MATRICULA M ON A.IDALUNO = M.ID_ALUNO WHERE M.NOTA = (SELECT MAX(NOTA) FROM MATRICULA)"},
+    {p:"Liste os nomes dos cursos com valor acima da média de valor de todos os cursos.", sql:"SELECT NOME FROM CURSO WHERE VALOR > (SELECT AVG(VALOR) FROM CURSO)"},
+    {p:"Liste o nome dos alunos que estão matriculados em pelo menos um curso, usando uma subconsulta com IN.", sql:"SELECT NOME FROM ALUNO WHERE IDALUNO IN (SELECT ID_ALUNO FROM MATRICULA)"},
+    {p:"Liste o nome dos alunos que NÃO estão matriculados em nenhum curso, usando NOT IN e uma subconsulta.", sql:"SELECT NOME FROM ALUNO WHERE IDALUNO NOT IN (SELECT ID_ALUNO FROM MATRICULA)"},
+    {p:"Liste o nome dos alunos que têm mais de uma matrícula, usando uma subconsulta com IN que já usa GROUP BY e HAVING.", sql:"SELECT NOME FROM ALUNO WHERE IDALUNO IN (SELECT ID_ALUNO FROM MATRICULA GROUP BY ID_ALUNO HAVING COUNT(*) > 1)"}
+  ]},
+
+/* ======================= DML ======================= */
+{id:'dml-insert', title:'INSERT — Inserindo dados', category:'dml', kind:'mutation',
+  hint:'INSERT INTO tabela VALUES (v1,v2,...) segue a ordem das colunas da tabela; INSERT INTO tabela (colA,colB) VALUES (...) deixa você escolher a ordem e omitir colunas.',
+  summary:'INSERT adiciona uma nova linha a uma tabela. Com a lista de colunas entre parênteses, você escolhe quais preencher e em que ordem (o resto vira NULL, ou é gerado automaticamente no caso da chave primária); sem a lista, os valores precisam bater exatamente com a ordem das colunas da tabela.',
+  qs:[
+    {p:"Cadastre um novo curso chamado 'Docker Essencial', com 20 horas de carga horária e valor 350.00. Use o id 7.", sql:"INSERT INTO CURSO VALUES (7,'Docker Essencial',20,350.00)", watch:['CURSO']},
+    {p:"Cadastre um novo aluno chamado 'Rafael Nogueira', sexo 'M', nascido em 1995-05-20, sem e-mail e sem mentor cadastrados. Use o id 15.", sql:"INSERT INTO ALUNO VALUES (15,'Rafael Nogueira','M','1995-05-20',NULL,NULL)", watch:['ALUNO']},
+    {p:"Registre a matrícula do aluno de id 4 no curso de id 2, com data 2024-05-01 e nota ainda não lançada (NULL). Use o id de matrícula 20.", sql:"INSERT INTO MATRICULA VALUES (20,4,2,'2024-05-01',NULL)", watch:['MATRICULA']},
+    {p:"Cadastre um telefone do tipo 'CEL', número '98888-1234', para o aluno de id 7. Use o id de telefone 15.", sql:"INSERT INTO TELEFONE (IDTELEFONE,TIPO,NUMERO,ID_ALUNO) VALUES (15,'CEL','98888-1234',7)", watch:['TELEFONE']},
+    {p:"Cadastre um endereço para o aluno de id 13 (Marina Costa): bairro 'Leblon', cidade 'Rio de Janeiro', UF 'RJ'. Use o id de endereço 13.", sql:"INSERT INTO ENDERECO (IDENDERECO,BAIRRO,CIDADE,UF,ID_ALUNO) VALUES (13,'Leblon','Rio de Janeiro','RJ',13)", watch:['ENDERECO']},
+    {p:"Cadastre dois novos cursos de uma vez: 'Git na Pratica' (id 7, 10 horas, valor 150.00) e 'Docker Essencial' (id 8, 20 horas, valor 350.00).", sql:"INSERT INTO CURSO VALUES (7,'Git na Pratica',10,150.00),(8,'Docker Essencial',20,350.00)", watch:['CURSO']}
+  ]},
+{id:'dml-update', title:'UPDATE — Atualizando dados', category:'dml', kind:'mutation',
+  hint:'UPDATE tabela SET coluna = valor WHERE condição — sem WHERE, TODAS as linhas são alteradas (cuidado!).',
+  summary:'UPDATE altera valores de linhas já existentes. O SET diz o que muda; o WHERE diz em quais linhas — sem WHERE, a alteração vale para a tabela inteira, então sempre confira a condição antes de rodar um UPDATE de verdade.',
+  qs:[
+    {p:"O curso 'Excel Avancado' teve seu valor reajustado. Atualize o valor dele para 300.00.", sql:"UPDATE CURSO SET VALOR = 300.00 WHERE NOME = 'Excel Avancado'", watch:['CURSO']},
+    {p:"O aluno Diego Alves conseguiu um novo e-mail: diego.alves@mail.com. Atualize o cadastro dele.", sql:"UPDATE ALUNO SET EMAIL = 'diego.alves@mail.com' WHERE NOME = 'Diego Alves'", watch:['ALUNO']},
+    {p:"Aplique um desconto de 10% em todos os cursos com carga horária de 20 horas (multiplique o valor por 0.9).", sql:"UPDATE CURSO SET VALOR = VALOR * 0.9 WHERE CARGA_HORARIA = 20", watch:['CURSO']},
+    {p:"A matrícula do aluno de id 3 no curso de id 1 (que ainda não tinha nota) foi avaliada com nota 6.5. Atualize essa matrícula.", sql:"UPDATE MATRICULA SET NOTA = 6.5 WHERE ID_ALUNO = 3 AND ID_CURSO = 1", watch:['MATRICULA']},
+    {p:"Corrija o telefone residencial ('RES') do aluno de id 6 para o número '3333-9999'.", sql:"UPDATE TELEFONE SET NUMERO = '3333-9999' WHERE ID_ALUNO = 6 AND TIPO = 'RES'", watch:['TELEFONE']},
+    {p:"Todas as alunas nascidas antes de 2000 agora têm o Hugo Castro (id 8) como mentor. Atualize o cadastro delas.", sql:"UPDATE ALUNO SET ID_MENTOR = 8 WHERE SEXO = 'F' AND NASCIMENTO < '2000-01-01'", watch:['ALUNO']}
+  ]},
+{id:'dml-delete', title:'DELETE — Removendo dados', category:'dml', kind:'mutation',
+  hint:'DELETE FROM tabela WHERE condição — sem WHERE, a tabela inteira fica vazia (cuidado!).',
+  summary:'DELETE remove linhas inteiras de uma tabela. O WHERE escolhe quais — sem WHERE, todas as linhas são apagadas. Diferente do DROP TABLE, o DELETE só esvazia a tabela, ela continua existindo.',
+  qs:[
+    {p:"O aluno Lucas Farias desistiu do curso 'SQL Basico' (id 1). Remova a matrícula correspondente (aluno id 12, curso id 1).", sql:"DELETE FROM MATRICULA WHERE ID_ALUNO = 12 AND ID_CURSO = 1", watch:['MATRICULA']},
+    {p:"Remova o telefone comercial (tipo 'COM') do aluno de id 3.", sql:"DELETE FROM TELEFONE WHERE ID_ALUNO = 3 AND TIPO = 'COM'", watch:['TELEFONE']},
+    {p:"O curso 'Excel Avancado' (id 6) será descontinuado. Remova todas as matrículas registradas nesse curso.", sql:"DELETE FROM MATRICULA WHERE ID_CURSO = 6", watch:['MATRICULA']},
+    {p:"Remova os alunos que nunca fizeram nenhuma matrícula (não aparecem na tabela de matrículas), usando uma subconsulta com NOT IN.", sql:"DELETE FROM ALUNO WHERE IDALUNO NOT IN (SELECT ID_ALUNO FROM MATRICULA)", watch:['ALUNO']},
+    {p:"Remova o endereço cadastrado para o aluno de id 12 (Lucas Farias).", sql:"DELETE FROM ENDERECO WHERE ID_ALUNO = 12", watch:['ENDERECO']},
+    {p:"Remova todos os cursos com valor menor que 300.", sql:"DELETE FROM CURSO WHERE VALOR < 300", watch:['CURSO']}
+  ]},
+
+/* ======================= DDL ======================= */
+{id:'ddl-create', title:'CREATE TABLE', category:'ddl', kind:'mutation',
+  hint:'CREATE TABLE nome (coluna TIPO restrições, ...) — PRIMARY KEY marca a chave primária, NOT NULL proíbe valor vazio, UNIQUE proíbe repetição.',
+  summary:'CREATE TABLE define uma tabela nova do zero: cada coluna tem um nome, um tipo (INT, VARCHAR(n), DATE, DECIMAL(p,s)...) e restrições opcionais. PRIMARY KEY identifica cada linha de forma única; NOT NULL exige que sempre haja um valor; UNIQUE proíbe valores repetidos; FOREIGN KEY liga a coluna a outra tabela.',
+  qs:[
+    {p:"Crie uma tabela CERTIFICADO com: IDCERTIFICADO (INT, chave primária), ID_ALUNO (INT, não pode ser nulo), DATA_EMISSAO (DATE) e CODIGO_VALIDACAO (VARCHAR(20), não pode ser nulo).",
+     sql:"CREATE TABLE CERTIFICADO (IDCERTIFICADO INT PRIMARY KEY, ID_ALUNO INT NOT NULL, DATA_EMISSAO DATE, CODIGO_VALIDACAO VARCHAR(20) NOT NULL)", watch:['CERTIFICADO'], compareMode:'schema'},
+    {p:"Crie uma tabela AVALIACAO_CURSO com: IDAVALIACAO (INT, chave primária), ID_CURSO (INT, não pode ser nulo), NOTA_SATISFACAO (INT, não pode ser nulo) e COMENTARIO (VARCHAR(200)).",
+     sql:"CREATE TABLE AVALIACAO_CURSO (IDAVALIACAO INT PRIMARY KEY, ID_CURSO INT NOT NULL, NOTA_SATISFACAO INT NOT NULL, COMENTARIO VARCHAR(200))", watch:['AVALIACAO_CURSO'], compareMode:'schema'},
+    {p:"Crie uma tabela SALA com: IDSALA (INT, chave primária), NOME (VARCHAR(30), não pode ser nulo e deve ser único) e CAPACIDADE (INT, não pode ser nulo).",
+     sql:"CREATE TABLE SALA (IDSALA INT PRIMARY KEY, NOME VARCHAR(30) NOT NULL UNIQUE, CAPACIDADE INT NOT NULL)", watch:['SALA'], compareMode:'schema'},
+    {p:"Crie uma tabela DEPARTAMENTO com IDDEPARTAMENTO (chave primária), NOME (VARCHAR(40), não pode ser nulo) e ID_RESPONSAVEL (INT, referenciando ALUNO(IDALUNO) por chave estrangeira).",
+     sql:"CREATE TABLE DEPARTAMENTO (IDDEPARTAMENTO INT PRIMARY KEY, NOME VARCHAR(40) NOT NULL, ID_RESPONSAVEL INT, FOREIGN KEY(ID_RESPONSAVEL) REFERENCES ALUNO(IDALUNO))", watch:['DEPARTAMENTO'], compareMode:'schema'},
+    {p:"Crie a tabela CERTIFICADO (IDCERTIFICADO chave primária, ID_ALUNO INT não nulo, DATA_EMISSAO DATE, CODIGO_VALIDACAO VARCHAR(20) não nulo) e, em seguida, insira um certificado de id 1 para o aluno de id 1, emitido em 2024-06-01, com código 'CERT-001'.",
+     sql:"CREATE TABLE CERTIFICADO (IDCERTIFICADO INT PRIMARY KEY, ID_ALUNO INT NOT NULL, DATA_EMISSAO DATE, CODIGO_VALIDACAO VARCHAR(20) NOT NULL); INSERT INTO CERTIFICADO VALUES (1,1,'2024-06-01','CERT-001');", watch:['CERTIFICADO']},
+    {p:"Crie uma tabela LOG_ACESSO simples, só para registrar quando alguém acessa o sistema: IDLOG (INT, chave primária) e DATA_HORA (DATETIME, não pode ser nulo).",
+     sql:"CREATE TABLE LOG_ACESSO (IDLOG INT PRIMARY KEY, DATA_HORA DATETIME NOT NULL)", watch:['LOG_ACESSO'], compareMode:'schema'}
+  ]},
+{id:'ddl-alter', title:'ALTER TABLE', category:'ddl', kind:'mutation',
+  hint:'ALTER TABLE nome ADD COLUMN col TIPO — acrescenta coluna. DROP COLUMN col — remove. MODIFY COLUMN col TIPO — muda o tipo. ADD CONSTRAINT ... FOREIGN KEY — acrescenta uma chave estrangeira.',
+  summary:'ALTER TABLE muda a estrutura de uma tabela que já existe, sem precisar recriá-la: dá para acrescentar colunas (ADD), remover (DROP), mudar o tipo de uma coluna (MODIFY) ou adicionar uma restrição de chave estrangeira depois que a tabela já foi criada.',
+  qs:[
+    {p:"A tabela CURSO precisa de uma nova coluna NIVEL (VARCHAR(15)) para indicar se o curso é iniciante, intermediário ou avançado.",
+     sql:"ALTER TABLE CURSO ADD COLUMN NIVEL VARCHAR(15)", watch:['CURSO'], compareMode:'schema'},
+    {p:"A coluna EMAIL da tabela ALUNO não é mais usada. Remova essa coluna.",
+     sql:"ALTER TABLE ALUNO DROP COLUMN EMAIL", watch:['ALUNO'], compareMode:'schema'},
+    {p:"O time de dados percebeu que VARCHAR(30) é pequeno demais para nomes de alunos. Altere o tipo da coluna NOME da tabela ALUNO para VARCHAR(80).",
+     sql:"ALTER TABLE ALUNO MODIFY COLUMN NOME VARCHAR(80)", watch:['ALUNO'], compareMode:'schema'},
+    {p:"Adicione uma coluna OBSERVACOES (VARCHAR(200)) na tabela MATRICULA, para anotações do professor.",
+     sql:"ALTER TABLE MATRICULA ADD COLUMN OBSERVACOES VARCHAR(200)", watch:['MATRICULA'], compareMode:'schema'},
+    {p:"A tabela TELEFONE ainda não tem uma chave estrangeira formal apontando para ALUNO. Adicione essa restrição (ID_ALUNO referenciando ALUNO(IDALUNO)), nomeando-a FK_TELEFONE_ALUNO.",
+     sql:"ALTER TABLE TELEFONE ADD CONSTRAINT FK_TELEFONE_ALUNO FOREIGN KEY(ID_ALUNO) REFERENCES ALUNO(IDALUNO)", watch:['TELEFONE'], compareMode:'schema'},
+    {p:"A tabela ENDERECO precisa de uma coluna CEP (VARCHAR(9)) para completar os endereços cadastrados.",
+     sql:"ALTER TABLE ENDERECO ADD COLUMN CEP VARCHAR(9)", watch:['ENDERECO'], compareMode:'schema'}
+  ]},
+{id:'ddl-constraints', title:'Constraints (PK, NOT NULL, UNIQUE, FK)', category:'ddl', kind:'mutation',
+  hint:'Combine restrições na mesma coluna: NOT NULL UNIQUE, por exemplo. FOREIGN KEY(col) REFERENCES tabela(col) pode vir junto das colunas, no nível da tabela.',
+  summary:'As restrições (constraints) são regras de integridade que o banco garante sozinho: PRIMARY KEY identifica cada linha; NOT NULL exige valor; UNIQUE proíbe duplicidade; FOREIGN KEY garante que o valor de uma coluna exista em outra tabela. Uma tabela bem desenhada combina várias dessas regras.',
+  qs:[
+    {p:"Crie uma tabela MATRICULA_BOLSA com IDBOLSA (INT, chave primária), ID_ALUNO (INT, não pode ser nulo) e PERCENTUAL (INT, não pode ser nulo) — o percentual de bolsa de estudos do aluno.",
+     sql:"CREATE TABLE MATRICULA_BOLSA (IDBOLSA INT PRIMARY KEY, ID_ALUNO INT NOT NULL, PERCENTUAL INT NOT NULL)", watch:['MATRICULA_BOLSA'], compareMode:'schema'},
+    {p:"Crie uma tabela CUPOM com CODIGO (VARCHAR(10), chave primária), DESCONTO (INT, não pode ser nulo) e PERCENTUAL_MAX (INT, deve ser único, pois não pode haver dois cupons com o mesmo teto de desconto).",
+     sql:"CREATE TABLE CUPOM (CODIGO VARCHAR(10) PRIMARY KEY, DESCONTO INT NOT NULL, PERCENTUAL_MAX INT UNIQUE)", watch:['CUPOM'], compareMode:'schema'},
+    {p:"Crie uma tabela TURMA com IDTURMA (INT, chave primária), ID_CURSO (INT, não pode ser nulo, referenciando CURSO(IDCURSO)) e SALA (VARCHAR(10)).",
+     sql:"CREATE TABLE TURMA (IDTURMA INT PRIMARY KEY, ID_CURSO INT NOT NULL, SALA VARCHAR(10), FOREIGN KEY(ID_CURSO) REFERENCES CURSO(IDCURSO))", watch:['TURMA'], compareMode:'schema'},
+    {p:"Crie uma tabela PROFESSOR com IDPROFESSOR (INT, chave primária), NOME (VARCHAR(50), não pode ser nulo), EMAIL (VARCHAR(50), único) e ID_DEPARTAMENTO (INT).",
+     sql:"CREATE TABLE PROFESSOR (IDPROFESSOR INT PRIMARY KEY, NOME VARCHAR(50) NOT NULL, EMAIL VARCHAR(50) UNIQUE, ID_DEPARTAMENTO INT)", watch:['PROFESSOR'], compareMode:'schema'},
+    {p:"Crie a tabela CURSO_PROFESSOR (liga professores aos cursos que lecionam): IDVINCULO (chave primária), ID_CURSO (INT, não nulo, referenciando CURSO(IDCURSO)) e ID_PROFESSOR (INT, não nulo, referenciando PROFESSOR(IDPROFESSOR)).",
+     sql:"CREATE TABLE CURSO_PROFESSOR (IDVINCULO INT PRIMARY KEY, ID_CURSO INT NOT NULL, ID_PROFESSOR INT NOT NULL, FOREIGN KEY(ID_CURSO) REFERENCES CURSO(IDCURSO), FOREIGN KEY(ID_PROFESSOR) REFERENCES PROFESSOR(IDPROFESSOR))", watch:['CURSO_PROFESSOR'], compareMode:'schema'},
+    {p:"Para este exercício, já existe uma tabela LOG_ACESSO (IDLOG INT chave primária, DATA_HORA DATETIME não nula) no banco, mas ela não é mais necessária. Escreva o comando para removê-la.",
+     sql:"DROP TABLE LOG_ACESSO", watch:['LOG_ACESSO'], compareMode:'schema',
+     seed:"CREATE TABLE LOG_ACESSO (IDLOG INT PRIMARY KEY, DATA_HORA DATETIME NOT NULL)"}
+  ]},
+
+/* ======================= TCL ======================= */
+{id:'tcl-transacoes', title:'Transações — BEGIN, COMMIT, ROLLBACK', category:'tcl', kind:'mutation',
+  hint:'BEGIN abre uma transação; COMMIT confirma as alterações; ROLLBACK desfaz tudo desde o BEGIN. Sem COMMIT, nada fica definitivo — e sem BEGIN, COMMIT/ROLLBACK dão erro.',
+  summary:'Uma transação agrupa vários comandos como uma unidade só: ou tudo é confirmado (COMMIT), ou tudo é desfeito (ROLLBACK) — nunca fica pela metade. BEGIN abre a transação; a partir daí, INSERT/UPDATE/DELETE ficam "provisórios" até você decidir com COMMIT ou ROLLBACK.',
+  qs:[
+    {p:"Abra uma transação, aumente todos os valores de curso em 10% (multiplique VALOR por 1.1), e confirme a alteração com COMMIT.",
+     sql:"BEGIN; UPDATE CURSO SET VALOR = VALOR * 1.1; COMMIT;", watch:['CURSO'], requireTypes:['begin','update','commit']},
+    {p:"A auditoria pediu para testar uma alteração sem aplicá-la de verdade: abra uma transação, zere todas as notas menores que 5, e depois desfaça tudo com ROLLBACK.",
+     sql:"BEGIN; UPDATE MATRICULA SET NOTA = 0 WHERE NOTA < 5; ROLLBACK;", watch:['MATRICULA'], requireTypes:['begin','update','rollback']},
+    {p:"Durante uma migração de teste, as notas do curso de id 1 foram zeradas por engano dentro de uma transação ainda aberta. Como o erro foi percebido a tempo, desfaça essa alteração com ROLLBACK.",
+     sql:"BEGIN; UPDATE MATRICULA SET NOTA = NULL WHERE ID_CURSO = 1; ROLLBACK;", watch:['MATRICULA'], requireTypes:['begin','update','rollback']},
+    {p:"Insira um novo curso (id 7, 'Docker Essencial', 20 horas, valor 350.00) dentro de uma transação e confirme com COMMIT.",
+     sql:"BEGIN; INSERT INTO CURSO VALUES (7,'Docker Essencial',20,350.00); COMMIT;", watch:['CURSO'], requireTypes:['begin','insert','commit']},
+    {p:"Um estagiário ia excluir por engano todas as matrículas do aluno de id 10 dentro de uma transação, mas cancelou a operação a tempo com ROLLBACK.",
+     sql:"BEGIN; DELETE FROM MATRICULA WHERE ID_ALUNO = 10; ROLLBACK;", watch:['MATRICULA'], requireTypes:['begin','delete','rollback']},
+    {p:"Abra uma transação, remova o telefone comercial ('COM') do aluno de id 10, e confirme com COMMIT.",
+     sql:"BEGIN; DELETE FROM TELEFONE WHERE ID_ALUNO = 10 AND TIPO = 'COM'; COMMIT;", watch:['TELEFONE'], requireTypes:['begin','delete','commit']},
+    {p:"Combine tudo: abra uma transação, aumente em 50 o valor de todos os cursos com carga horária de 40 horas, e confirme com COMMIT.",
+     sql:"BEGIN; UPDATE CURSO SET VALOR = VALOR + 50 WHERE CARGA_HORARIA = 40; COMMIT;", watch:['CURSO'], requireTypes:['begin','update','commit']}
+  ]},
+
+/* ======================= DCL ======================= */
+{id:'dcl-grant-revoke', title:'GRANT e REVOKE', category:'dcl', kind:'mutation',
+  hint:"GRANT privilegio(s) ON tabela TO usuario — concede acesso. REVOKE privilegio(s) ON tabela FROM usuario — retira. Privilégios comuns: SELECT, INSERT, UPDATE, DELETE.",
+  summary:'DCL controla QUEM pode fazer O QUÊ em cada tabela. GRANT concede um ou mais privilégios (SELECT, INSERT, UPDATE, DELETE) a um usuário numa tabela; REVOKE retira privilégios já concedidos. É assim que um banco garante que só as pessoas certas mexam nos dados certos.',
+  qs:[
+    {p:"Conceda ao usuário 'professor' a permissão de SELECT na tabela ALUNO.", sql:"GRANT SELECT ON ALUNO TO professor", watch:['PERMISSAO']},
+    {p:"O usuário 'estagiario' não deveria poder apagar registros de alunos. Revogue a permissão de DELETE dele na tabela ALUNO.", sql:"REVOKE DELETE ON ALUNO FROM estagiario", watch:['PERMISSAO']},
+    {p:"Conceda ao usuário 'coordenador' as permissões de SELECT, INSERT e UPDATE na tabela CURSO, tudo de uma vez.", sql:"GRANT SELECT, INSERT, UPDATE ON CURSO TO coordenador", watch:['PERMISSAO']},
+    {p:"Revogue todas as permissões atuais do usuário 'professor' na tabela MATRICULA (ele tinha SELECT e UPDATE).", sql:"REVOKE SELECT, UPDATE ON MATRICULA FROM professor", watch:['PERMISSAO']},
+    {p:"Um novo estagiário, 'joao_estagio', precisa apenas conseguir consultar (SELECT) a tabela CURSO. Conceda exatamente essa permissão.", sql:"GRANT SELECT ON CURSO TO joao_estagio", watch:['PERMISSAO']},
+    {p:"Por segurança, o usuário 'estagiario' não deve mais conseguir nem consultar (SELECT) nem apagar (DELETE) dados da tabela ALUNO. Revogue as duas permissões de uma vez.", sql:"REVOKE SELECT, DELETE ON ALUNO FROM estagiario", watch:['PERMISSAO']}
+  ]},
+
+/* ======================= PROCEDURES ======================= */
+{id:'procedures', title:'Stored Procedures', category:'proc', kind:'mixed',
+  hint:'CREATE PROCEDURE nome (@param TIPO, ...) AS BEGIN ... END guarda um bloco de comandos reutilizável; EXEC nome(valores) executa. Dentro do corpo, @param vale o argumento passado.',
+  summary:'Uma procedure (procedimento armazenado) é um conjunto de comandos SQL salvo com um nome, que recebe parâmetros (@param) e pode ser chamado repetidas vezes com EXEC — em vez de reescrever o mesmo UPDATE/INSERT toda hora, você cria a procedure uma vez e só chama.',
+  qs:[
+    {p:"Uma procedure ATUALIZA_VALOR_CURSO(@ID, @NOVO_VALOR) já existe para atualizar o valor de um curso. Chame-a para definir o valor do curso de id 5 como 650.00.",
+     kind:'mutation', sql:"EXEC ATUALIZA_VALOR_CURSO(5, 650.00)", watch:['CURSO'],
+     seed:"CREATE PROCEDURE ATUALIZA_VALOR_CURSO (@ID INT, @NOVO_VALOR DECIMAL) AS BEGIN UPDATE CURSO SET VALOR=@NOVO_VALOR WHERE IDCURSO=@ID; END"},
+    {p:"Uma procedure CADASTRA_TELEFONE(@ID_ALUNO, @TIPO, @NUMERO) já existe. Use-a para cadastrar um celular '97777-0000' para o aluno de id 4.",
+     kind:'mutation', sql:"EXEC CADASTRA_TELEFONE(4, 'CEL', '97777-0000')", watch:['TELEFONE'],
+     seed:"CREATE PROCEDURE CADASTRA_TELEFONE (@ID_ALUNO INT, @TIPO VARCHAR, @NUMERO VARCHAR) AS BEGIN INSERT INTO TELEFONE (TIPO,NUMERO,ID_ALUNO) VALUES (@TIPO,@NUMERO,@ID_ALUNO); END"},
+    {p:"Uma procedure REMOVE_MATRICULA(@ID_ALUNO, @ID_CURSO) já existe para cancelar uma matrícula. Use-a para cancelar a matrícula do aluno de id 12 no curso de id 1.",
+     kind:'mutation', sql:"EXEC REMOVE_MATRICULA(12, 1)", watch:['MATRICULA'],
+     seed:"CREATE PROCEDURE REMOVE_MATRICULA (@ID_ALUNO INT, @ID_CURSO INT) AS BEGIN DELETE FROM MATRICULA WHERE ID_ALUNO=@ID_ALUNO AND ID_CURSO=@ID_CURSO; END"},
+    {p:"Escreva uma procedure chamada REAJUSTA_CURSO que recebe o id de um curso (@ID) e um percentual (@PERC, ex.: 10 para 10%) e aumenta o VALOR desse curso nesse percentual.",
+     kind:'procedure', sql:"CREATE PROCEDURE REAJUSTA_CURSO (@ID INT, @PERC DECIMAL) AS BEGIN UPDATE CURSO SET VALOR = VALOR * (1 + @PERC/100) WHERE IDCURSO = @ID; END",
+     testCalls:[{args:[1,10], watch:['CURSO']},{args:[5,-20], watch:['CURSO']}]},
+    {p:"Escreva uma procedure chamada MATRICULA_ALUNO que recebe o id de um aluno (@ID_ALUNO), o id de um curso (@ID_CURSO) e uma data (@DATA), e insere uma nova matrícula com nota ainda nula.",
+     kind:'procedure', sql:"CREATE PROCEDURE MATRICULA_ALUNO (@ID_ALUNO INT, @ID_CURSO INT, @DATA DATE) AS BEGIN INSERT INTO MATRICULA (ID_ALUNO,ID_CURSO,DATA_MATRICULA,NOTA) VALUES (@ID_ALUNO,@ID_CURSO,@DATA,NULL); END",
+     testCalls:[{args:[4,2,'2024-06-01'], watch:['MATRICULA']},{args:[7,5,'2024-07-15'], watch:['MATRICULA']}]},
+    {p:"Escreva uma procedure chamada CURSOS_ACIMA_DE que recebe um valor mínimo (@MIN) e retorna o nome e o valor dos cursos com valor maior que esse mínimo.",
+     kind:'procedure', sql:"CREATE PROCEDURE CURSOS_ACIMA_DE (@MIN DECIMAL) AS BEGIN SELECT NOME, VALOR FROM CURSO WHERE VALOR > @MIN; END",
+     testCalls:[{args:[300], resultKind:'query'},{args:[600], resultKind:'query'},{args:[1000], resultKind:'query'}]}
+  ]},
+{id:'cenarios-reais', title:'Cenários Reais — Desafio Final', category:'proc', kind:'mixed',
+  hint:'Releia o enunciado com calma: cada cenário combina o que você já aprendeu (JOIN, GROUP BY, HAVING, subconsultas, transações, DDL ou DCL) numa situação de empresa de verdade.',
+  summary:'No dia a dia, um pedido de negócio raramente vem etiquetado como "isso é um JOIN" ou "isso é uma transação" — você precisa reconhecer sozinho qual ferramenta usar. Este módulo mistura tudo: consultas analíticas, alterações de dados, transações e controle de acesso, sempre a partir de uma situação realista.',
+  qs:[
+    {p:"O time financeiro quer a receita gerada por matrículas em cada curso (quantidade de matrículas × valor do curso), mas só para cursos com pelo menos 2 matrículas. Mostre o nome do curso, a quantidade de matrículas (QTD) e a receita (RECEITA), da maior para a menor receita.",
+     kind:'query', sql:"SELECT C.NOME, COUNT(*) AS QTD, COUNT(*) * C.VALOR AS RECEITA FROM CURSO C INNER JOIN MATRICULA M ON C.IDCURSO = M.ID_CURSO GROUP BY C.NOME HAVING COUNT(*) >= 2 ORDER BY RECEITA DESC"},
+    {p:"A aluna Karina Souza (id 11) pediu para trancar TODAS as suas matrículas ativas e, ao mesmo tempo, atualizar seu e-mail para 'karina.trancamento@mail.com'. Faça as duas operações.",
+     kind:'mutation', sql:"DELETE FROM MATRICULA WHERE ID_ALUNO = 11; UPDATE ALUNO SET EMAIL = 'karina.trancamento@mail.com' WHERE IDALUNO = 11;", watch:['MATRICULA','ALUNO']},
+    {p:"O time de operações vai testar em produção um reajuste de 20% em todos os cursos com carga horária acima de 25 horas. Abra uma transação, aplique o reajuste (multiplique VALOR por 1.2) e, como o teste deu certo, confirme com COMMIT.",
+     kind:'mutation', sql:"BEGIN; UPDATE CURSO SET VALOR = VALOR * 1.2 WHERE CARGA_HORARIA > 25; COMMIT;", watch:['CURSO'], requireTypes:['begin','update','commit']},
+    {p:"A empresa está lançando um programa de certificações. Crie a tabela CERTIFICADO com: IDCERTIFICADO (chave primária), ID_ALUNO (INT, não nulo, referenciando ALUNO(IDALUNO)), DATA_EMISSAO (DATE, não nula) e CODIGO_VALIDACAO (VARCHAR(20), não nulo e único, pois cada código é exclusivo).",
+     kind:'mutation', sql:"CREATE TABLE CERTIFICADO (IDCERTIFICADO INT PRIMARY KEY, ID_ALUNO INT NOT NULL, DATA_EMISSAO DATE NOT NULL, CODIGO_VALIDACAO VARCHAR(20) NOT NULL UNIQUE, FOREIGN KEY(ID_ALUNO) REFERENCES ALUNO(IDALUNO))", watch:['CERTIFICADO'], compareMode:'schema'},
+    {p:"Numa auditoria de segurança, ficou definido que só o 'coordenador' pode alterar (UPDATE) notas em MATRICULA — o 'professor' não terá mais essa permissão, mas continua podendo consultar. Revogue o UPDATE do 'professor' em MATRICULA e conceda UPDATE ao 'coordenador' em MATRICULA.",
+     kind:'mutation', sql:"REVOKE UPDATE ON MATRICULA FROM professor; GRANT UPDATE ON MATRICULA TO coordenador;", watch:['PERMISSAO']},
+    {p:"O RH quer saber, para cada mentor, a média das notas de todas as matrículas dos alunos que ele mentora — mas só entre mentores cuja média fique abaixo de 7. Mostre o nome do mentor e a média (MEDIA).",
+     kind:'query', sql:"SELECT A2.NOME, AVG(M.NOTA) AS MEDIA FROM ALUNO A1 INNER JOIN ALUNO A2 ON A1.ID_MENTOR = A2.IDALUNO INNER JOIN MATRICULA M ON A1.IDALUNO = M.ID_ALUNO GROUP BY A2.NOME HAVING AVG(M.NOTA) < 7"},
+    {p:"A diretoria decidiu remover do catálogo qualquer curso que nunca teve nenhuma matrícula (neste banco, isso inclui um curso piloto recém-cadastrado, de id 7, sem matrículas). Remova esses cursos da tabela CURSO usando uma subconsulta.",
+     kind:'mutation', sql:"DELETE FROM CURSO WHERE IDCURSO NOT IN (SELECT ID_CURSO FROM MATRICULA)", watch:['CURSO'],
+     seed:"INSERT INTO CURSO VALUES (7,'Curso Piloto Descontinuado',10,199.00)"}
+  ]}
+];
+
+
+/* ============================= SCHEMA DE EXIBIÇÃO ============================= */
+const DISPLAY_SCHEMA = baseSchema();
+
+/* ============================= ESTADO / PROGRESSO ============================= */
+const STORAGE_KEY='sqldojo_progress_v3';
+function loadState(){
+  try{
+    const raw=localStorage.getItem(STORAGE_KEY);
+    if(raw){ const s=JSON.parse(raw); if(s && s.topics && s.reviewQueue) return s; }
+  }catch(e){}
+  const topics={};
+  TOPICS.forEach(t=>{ topics[t.id]={learned:[], mastered:false, attempts:0, correct:0}; });
+  return {topics, reviewQueue:[], activeTopicIndex:0, totalAttempts:0, totalCorrect:0};
+}
+function saveState(){ try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }catch(e){} }
+let state = loadState();
+TOPICS.forEach(t=>{ if(!state.topics[t.id]) state.topics[t.id]={learned:[],mastered:false,attempts:0,correct:0}; });
+if(!Array.isArray(state.reviewQueue)) state.reviewQueue=[];
+
+function isUnlocked(idx){ return idx===0 || state.topics[TOPICS[idx-1].id].mastered; }
+function firstUnmasteredUnlocked(){
+  for(let i=0;i<TOPICS.length;i++){ if(!isUnlocked(i)) return Math.max(0,i-1); if(!state.topics[TOPICS[i].id].mastered) return i; }
+  return TOPICS.length-1;
+}
+if(state.activeTopicIndex==null || !isUnlocked(state.activeTopicIndex)) state.activeTopicIndex = firstUnmasteredUnlocked();
+
+let currentTopic = TOPICS[state.activeTopicIndex];
+let currentQ = null;
+let solutionViewed = false;
+
+function el(id){ return document.getElementById(id); }
+function escapeHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;'); }
+
+function materializeQuestion(topic, idx){
+  const q = topic.qs[idx];
+  const out = Object.assign({}, q, {topicId:topic.id, qIndex:idx, kind:q.kind||topic.kind});
+  return out;
+}
+function addToReviewQueue(topicId, qIndex){
+  if(!state.reviewQueue.some(e=>e.topicId===topicId && e.qIndex===qIndex)) state.reviewQueue.push({topicId, qIndex});
+}
+function removeFromReviewQueue(topicId, qIndex){
+  state.reviewQueue = state.reviewQueue.filter(e=>!(e.topicId===topicId && e.qIndex===qIndex));
+}
+function decideNextQuestion(){
+  if(state.reviewQueue.length && Math.random()<0.4){
+    const entry = state.reviewQueue[Math.floor(Math.random()*state.reviewQueue.length)];
+    const topic = TOPICS.find(t=>t.id===entry.topicId);
+    if(topic){
+      const q = materializeQuestion(topic, entry.qIndex);
+      q.isReview = true;
+      return q;
+    }
+  }
+  const topic = currentTopic;
+  const st = state.topics[topic.id];
+  const notLearned = topic.qs.map((_,i)=>i).filter(i=>!st.learned.includes(i));
+  const pool = notLearned.length? notLearned : topic.qs.map((_,i)=>i);
+  const avoidIdx = (currentQ && !currentQ.isReview && currentQ.topicId===topic.id) ? currentQ.qIndex : -1;
+  const filtered = pool.filter(i=>i!==avoidIdx);
+  const list = filtered.length? filtered : pool;
+  const idx = list[Math.floor(Math.random()*list.length)];
+  const q = materializeQuestion(topic, idx);
+  q.isReview = false;
+  return q;
+}
+
+/* ============================= GRADING DISPATCH ============================= */
+function gradeCurrentQuestion(userText){
+  const q = currentQ;
+  if(q.kind==='query') return gradeQuery(userText, q.sql);
+  if(q.kind==='mutation') return gradeMutation(userText, q.sql, {watch:q.watch, compareMode:q.compareMode, seed:q.seed, requireTypes:q.requireTypes});
+  if(q.kind==='procedure') return gradeProcedure(userText, q.sql, q.testCalls);
+  throw new Error('Tipo de questão desconhecido: '+q.kind);
+}
+
+/* ============================= RENDER: TABELAS / RESULTADOS ============================= */
+function fmtCell(v){
+  if(v===null||v===undefined) return '<td class="null">NULL</td>';
+  return '<td>'+escapeHtml(v)+'</td>';
+}
+function renderResultTable(res){
+  if(!res || !res.rows.length) return '<p class="empty-note">0 linhas.</p>';
+  let h='<div class="result-tbl-wrap"><table class="result"><thead><tr>';
+  res.columns.forEach(c=>h+='<th>'+escapeHtml(c)+'</th>');
+  h+='</tr></thead><tbody>';
+  res.rows.slice(0,50).forEach(r=>{ h+='<tr>'+r.map(fmtCell).join('')+'</tr>'; });
+  h+='</tbody></table></div>';
+  if(res.rows.length>50) h+='<p class="empty-note">mostrando 50 de '+res.rows.length+' linhas</p>';
+  return h;
+}
+function renderMutationState(schema, watchTables, compareMode){
+  let html='';
+  (watchTables||[]).forEach(t=>{
+    const T=t.toUpperCase();
+    const tbl=schema[T];
+    html += '<div class="wt-title">'+T+'</div>';
+    if(!tbl){ html += '<p class="empty-note">(tabela não existe mais)</p>'; return; }
+    if(compareMode==='schema'){
+      html += '<div class="schema-summary">'
+        +'<div><b>Colunas:</b> '+escapeHtml(tbl.columns.join(', '))+'</div>'
+        +'<div><b>Chave primária:</b> '+escapeHtml(tbl.pk||'—')+'</div>'
+        +'<div><b>NOT NULL:</b> '+escapeHtml((tbl.notNull&&tbl.notNull.length)?tbl.notNull.join(', '):'—')+'</div>'
+        +'<div><b>UNIQUE:</b> '+escapeHtml((tbl.unique&&tbl.unique.length)?tbl.unique.join(', '):'—')+'</div>'
+        +'<div><b>FOREIGN KEY:</b> '+escapeHtml((tbl.foreignKeys&&tbl.foreignKeys.length)?tbl.foreignKeys.map(fk=>fk.col+' → '+fk.refTable+'.'+fk.refCol).join(', '):'—')+'</div>'
+      +'</div>';
+    } else {
+      html += renderResultTable({columns:tbl.columns, rows:tbl.rows.map(r=>tbl.columns.map(c=>r[c]))});
+    }
+  });
+  return html || '<p class="empty-note">Nenhuma tabela para exibir.</p>';
+}
+
+/* ============================= RENDER: ESQUEMA ============================= */
+function renderSchema(){
+  const wrap=el('schema-body'); wrap.innerHTML='';
+  Object.keys(DISPLAY_SCHEMA).forEach(name=>{
+    const t=DISPLAY_SCHEMA[name];
+    const box=document.createElement('div'); box.className='schema-tbl';
+    const lis=t.columns.map(c=>'<li><b class="'+(c===t.pk?'pk':'')+'">'+c+'</b></li>').join('');
+    box.innerHTML='<h4>'+name+'</h4><ul>'+lis+'</ul><button class="data-toggle">ver dados ('+t.rows.length+' linhas)</button><div class="mini-tbl-wrap" style="display:none;"></div>';
+    const btn=box.querySelector('.data-toggle');
+    const mtw=box.querySelector('.mini-tbl-wrap');
+    btn.addEventListener('click',()=>{
+      if(mtw.style.display==='none'){
+        let h='<table class="mini-tbl"><thead><tr>'+t.columns.map(c=>'<th>'+c+'</th>').join('')+'</tr></thead><tbody>';
+        t.rows.forEach(r=>{ h+='<tr>'+t.columns.map(c=>{ const v=r[c]; return v===null||v===undefined?'<td class="null">NULL</td>':'<td>'+escapeHtml(v)+'</td>'; }).join('')+'</tr>'; });
+        h+='</tbody></table>';
+        mtw.innerHTML=h; mtw.style.display='block'; btn.textContent='ocultar dados';
+      } else { mtw.style.display='none'; btn.textContent='ver dados ('+t.rows.length+' linhas)'; }
+    });
+    wrap.appendChild(box);
+  });
+}
+
+/* ============================= RENDER: STATS / SIDEBAR ============================= */
+function levelLabel(){
+  const catsDone = CATEGORIES.filter(c => TOPICS.filter(t=>t.category===c.id).every(t=>state.topics[t.id].mastered)).length;
+  if(catsDone>=6) return '🏆 Mestre em SQL';
+  if(catsDone>=4) return '🚀 Avançado';
+  if(catsDone>=2) return '📈 Intermediário';
+  if(catsDone>=1) return '🌱 Iniciante+';
+  return '🥋 Iniciante';
+}
+function renderStats(){
+  const masteredCount = TOPICS.filter(t=>state.topics[t.id].mastered).length;
+  el('stat-mastered').textContent = masteredCount+'/'+TOPICS.length;
+  el('stat-answered').textContent = state.totalAttempts;
+  el('stat-accuracy').textContent = state.totalAttempts? Math.round(100*state.totalCorrect/state.totalAttempts)+'%' : '—';
+  el('stat-review').textContent = state.reviewQueue.length;
+  el('level-pill').textContent = levelLabel();
+}
+function renderSidebar(){
+  const wrap=el('sidebar');
+  wrap.innerHTML='';
+  let lastCat=null;
+  TOPICS.forEach((t,idx)=>{
+    const unlocked=isUnlocked(idx);
+    if(t.category!==lastCat){
+      lastCat=t.category;
+      const info=CATEGORIES.find(c=>c.id===t.category);
+      const header=document.createElement('div');
+      header.className='cat-header'+(unlocked?'':' locked');
+      header.innerHTML='<span>'+info.emoji+'</span><span>'+info.title+'</span>';
+      wrap.appendChild(header);
+    }
+    const st=state.topics[t.id];
+    const div=document.createElement('div');
+    div.className='topic-item'+(!unlocked?' locked':'')+(st.mastered?' mastered':'')+(idx===state.activeTopicIndex&&unlocked?' active':'');
+    const pct = t.qs.length? Math.round(100*st.learned.length/t.qs.length) : 0;
+    div.innerHTML='<div class="topic-num">'+(st.mastered?'✓':(idx+1))+'</div>'+
+      '<div class="topic-text"><strong>'+t.title+'</strong>'+
+      '<div class="progress-bar"><div class="progress-fill" style="width:'+pct+'%"></div></div>'+
+      '<span class="progress-label">'+st.learned.length+'/'+t.qs.length+'</span></div>';
+    if(unlocked){ div.addEventListener('click',()=>{ state.activeTopicIndex=idx; currentTopic=t; saveState(); loadNewQuestion(); renderSidebar(); }); }
+    wrap.appendChild(div);
+  });
+  const foot=document.createElement('div');
+  foot.className='sidebar-foot';
+  foot.innerHTML='<div class="review-count">🔁 '+state.reviewQueue.length+' questão(ões) na fila de revisão</div><button class="reset-btn" id="btn-reset">Reiniciar progresso</button>';
+  wrap.appendChild(foot);
+  el('btn-reset').addEventListener('click',()=>{
+    if(confirm('Isso apaga todo o seu progresso salvo neste navegador. Continuar?')){
+      try{ localStorage.removeItem(STORAGE_KEY); }catch(e){}
+      state=loadState();
+      TOPICS.forEach(t=>{ if(!state.topics[t.id]) state.topics[t.id]={learned:[],mastered:false,attempts:0,correct:0}; });
+      state.activeTopicIndex=0; currentTopic=TOPICS[0];
+      saveState(); renderSidebar(); renderStats(); loadNewQuestion();
+    }
+  });
+}
+
+/* ============================= RENDER: QUESTÃO ============================= */
+function updateHudWorld(topic){
+  const info=CATEGORIES.find(c=>c.id===topic.category);
+  const w=el('hud-world'); if(w) w.textContent='MUNDO: '+info.title.toUpperCase();
+}
+function renderQuestionHead(topic){
+  const info=CATEGORIES.find(c=>c.id===topic.category);
+  el('q-cat-badge').textContent = info.emoji+' '+info.title;
+  el('q-topic-badge').textContent = topic.title;
+  const st=state.topics[topic.id];
+  el('q-progress').textContent = st.learned.length+'/'+topic.qs.length+' aprendidas'+(st.mastered?' · concluída ✓':'');
+  const rb=el('q-review-badge'); rb.className = 'badge review'+(currentQ.isReview?' show':'');
+  el('q-prompt').textContent = currentQ.p;
+  updateHudWorld(topic);
+}
+function loadNewQuestion(){
+  currentQ = decideNextQuestion();
+  solutionViewed=false;
+  el('sql-input').value='';
+  el('hint-box').style.display='none';
+  el('sol-box').style.display='none';
+  el('summary-box').className='summary-box';
+  el('feedback').className='feedback'; el('feedback').innerHTML='';
+  el('result-panel').style.display='none';
+  el('btn-next').style.display='none';
+  el('btn-check').disabled=false;
+  const qTopic=TOPICS.find(t=>t.id===currentQ.topicId);
+  renderQuestionHead(qTopic);
+}
+
+/* ============================= SOM (efeitos 8-bit sintetizados) ============================= */
+const SOUND_KEY='sqldojo_sound_v1';
+let soundOn=true;
+try{ const s=localStorage.getItem(SOUND_KEY); if(s!==null) soundOn=(s==='1'); }catch(e){}
+let audioCtx=null;
+function getAudioCtx(){
+  if(!audioCtx){ const AC=window.AudioContext||window.webkitAudioContext; if(AC){ try{ audioCtx=new AC(); }catch(e){} } }
+  return audioCtx;
+}
+function beep(ctx,freq,t0,dur,type,peak){
+  const osc=ctx.createOscillator(), gain=ctx.createGain();
+  osc.type=type||'square';
+  osc.frequency.setValueAtTime(freq,t0);
+  gain.gain.setValueAtTime(0,t0);
+  gain.gain.linearRampToValueAtTime(peak||0.06,t0+0.01);
+  gain.gain.exponentialRampToValueAtTime(0.0001,t0+dur);
+  osc.connect(gain); gain.connect(ctx.destination);
+  osc.start(t0); osc.stop(t0+dur+0.02);
+}
+function playCorrect(){
+  if(!soundOn) return;
+  const ctx=getAudioCtx(); if(!ctx) return;
+  const t=ctx.currentTime;
+  beep(ctx,660,t,0.09,'square',0.05);
+  beep(ctx,880,t+0.08,0.13,'square',0.05);
+}
+function playWrong(){
+  if(!soundOn) return;
+  const ctx=getAudioCtx(); if(!ctx) return;
+  const t=ctx.currentTime;
+  beep(ctx,220,t,0.16,'triangle',0.05);
+  beep(ctx,165,t+0.09,0.18,'triangle',0.045);
+}
+function playLevelUp(){
+  if(!soundOn) return;
+  const ctx=getAudioCtx(); if(!ctx) return;
+  const t=ctx.currentTime;
+  [523.25,659.25,783.99,1046.5].forEach((f,i)=>beep(ctx,f,t+i*0.1,0.16,'square',0.055));
+  beep(ctx,1046.5,t+0.45,0.3,'square',0.06);
+}
+function updateSoundBtn(){
+  const b=el('btn-sound'); if(!b) return;
+  b.textContent=soundOn?'🔊':'🔇';
+  b.classList.toggle('muted',!soundOn);
+}
+
+/* ============================= INTERAÇÃO ============================= */
+function showFeedback(ok,title,sub){
+  const f=el('feedback');
+  f.className='feedback show '+(ok?'ok':'bad');
+  f.innerHTML='<b>'+escapeHtml(title)+'</b>'+(sub?'<span class="sub">'+escapeHtml(sub)+'</span>':'');
+}
+function friendlyWrongMessage(g){
+  if(g.reason==='rows') return 'O número de linhas retornadas não bate com o esperado (você retornou '+g.actual.rows.length+', o esperado é '+g.expected.rows.length+').';
+  if(g.reason==='cols') return 'O número de colunas retornadas não bate com o esperado.';
+  if(g.reason==='order') return 'Os dados batem, mas a ordem das linhas está diferente do pedido — confira o ORDER BY.';
+  if(g.reason==='rows' || g.reason==='schema') return 'O resultado final não bate com o esperado. Releia o enunciado com atenção.';
+  return 'O resultado ainda não bate com o esperado. Releia o enunciado com atenção.';
+}
+function renderRunResult(g){
+  const panel=el('result-panel'); panel.style.display='block';
+  if(g.message){
+    el('result-title').textContent='Erro';
+    el('result-body').innerHTML='<div class="err-box">'+escapeHtml(g.message)+'</div>';
+    return;
+  }
+  if(currentQ.kind==='query'){
+    const res=g.actual;
+    el('result-title').textContent='Seu resultado ('+res.rows.length+' linha'+(res.rows.length===1?'':'s')+')';
+    el('result-body').innerHTML=renderResultTable(res);
+  } else if(currentQ.kind==='mutation'){
+    el('result-title').textContent='Estado final dos dados após sua resposta';
+    el('result-body').innerHTML=renderMutationState(g.userSchema, currentQ.watch, currentQ.compareMode);
+  } else if(currentQ.kind==='procedure'){
+    el('result-title').textContent = g.ok? 'Sua procedure passou em todos os testes' : 'Sua procedure não passou em todos os testes';
+    el('result-body').innerHTML='<p class="empty-note">Use "Executar" para testar manualmente sua procedure com um exemplo de chamada.</p>';
+  }
+}
+function handleCheck(){
+  const text=el('sql-input').value.trim();
+  if(!text){ showFeedback(false,'Escreva uma resposta antes de verificar.'); return; }
+  let g;
+  try{ g=gradeCurrentQuestion(text); }
+  catch(e){ showFeedback(false,'Erro inesperado:', e.message); return; }
+
+  const topic=TOPICS.find(t=>t.id===currentQ.topicId);
+  const st=state.topics[topic.id];
+  state.totalAttempts++; st.attempts++;
+
+  if(g.ok && !g.systemError){
+    const countsAsLearned=!solutionViewed;
+    state.totalCorrect++; st.correct++;
+    if(countsAsLearned){
+      if(!st.learned.includes(currentQ.qIndex)) st.learned.push(currentQ.qIndex);
+      removeFromReviewQueue(currentQ.topicId, currentQ.qIndex);
+      showFeedback(true, currentQ.isReview?'✅ Revisão concluída!':'✅ Certinho!', 'Sua resposta bate com o esperado.');
+    } else {
+      addToReviewQueue(currentQ.topicId, currentQ.qIndex);
+      showFeedback(true,'✅ Confere com a solução.','Como você usou "Ver solução", isso não conta como aprendida — ela volta para a fila de revisão para você tentar de novo, sozinho(a), mais tarde.');
+    }
+    el('summary-box').className='summary-box';
+    renderRunResult(g);
+    el('btn-check').disabled=true;
+    el('btn-next').style.display='inline-block';
+    const justMastered = countsAsLearned && !st.mastered && st.learned.length===topic.qs.length;
+    if(justMastered){
+      const idx=TOPICS.findIndex(t=>t.id===topic.id);
+      const isLastOfCat = idx===TOPICS.length-1 || TOPICS[idx+1].category!==topic.category;
+      st.mastered=true;
+      celebrateMastery(topic);
+      if(isLastOfCat) playLevelUp(); else playCorrect();
+    } else {
+      playCorrect();
+    }
+  } else {
+    addToReviewQueue(currentQ.topicId, currentQ.qIndex);
+    if(g.message){
+      showFeedback(false,'❌ Sua resposta não pôde ser executada.','Corrija o erro indicado no painel abaixo e tente de novo.');
+    } else {
+      showFeedback(false,'❌ Ainda não é isso.', friendlyWrongMessage(g));
+    }
+    renderRunResult(g);
+    el('summary-box').className='summary-box show';
+    el('summary-box').innerHTML='<b>📘 Resumo — '+escapeHtml(topic.title)+'</b>'+topic.summary;
+    playWrong();
+  }
+  saveState(); renderSidebar(); renderStats(); renderQuestionHead(topic);
+}
+function celebrateMastery(topic){
+  const idx=TOPICS.findIndex(t=>t.id===topic.id);
+  const isLastOverall=idx===TOPICS.length-1;
+  const isLastOfCategory=isLastOverall || TOPICS[idx+1].category!==topic.category;
+  const box=el('celebrate'); box.className='celebrate show'+(isLastOfCategory?' levelup':'');
+  const sparkles='<span class="sparkle s1">★</span><span class="sparkle s2">✦</span><span class="sparkle s3">★</span>';
+  if(isLastOverall){
+    box.innerHTML='<div class="lvlup-badge">🏆</div><div class="lvlup-text"><b>JOGO ZERADO!</b><span>Você concluiu as 22 lições do SQL Dojo. Continue treinando qualquer lição pela barra lateral — a fila de revisão continua ativa.</span></div>'+sparkles;
+  } else if(isLastOfCategory){
+    const nextCat=CATEGORIES.find(c=>c.id===TOPICS[idx+1].category);
+    const curCat=CATEGORIES.find(c=>c.id===topic.category);
+    box.innerHTML='<div class="lvlup-badge">🗃️</div><div class="lvlup-text"><b>FASE CONCLUÍDA: '+curCat.title.toUpperCase()+'!</b><span>Nova fase liberada: '+nextCat.emoji+' '+nextCat.title+'.</span></div>'+sparkles;
+    state.activeTopicIndex=idx+1; currentTopic=TOPICS[idx+1];
+  } else {
+    const next=TOPICS[idx+1];
+    box.innerHTML='<div><b>🎉 Lição "'+escapeHtml(topic.title)+'" concluída!</b><span class="sub">Próxima: '+escapeHtml(next.title)+'.</span></div>';
+    state.activeTopicIndex=idx+1; currentTopic=TOPICS[idx+1];
+  }
+}
+function handleRun(){
+  const text=el('sql-input').value.trim();
+  el('celebrate').className='celebrate';
+  if(!text) return;
+  el('result-panel').style.display='block';
+  try{
+    if(currentQ.kind==='query'){
+      const res=runSQL(text, DISPLAY_SCHEMA);
+      el('result-title').textContent='Resultado ('+res.rows.length+' linha'+(res.rows.length===1?'':'s')+')';
+      el('result-body').innerHTML=renderResultTable(res);
+    } else if(currentQ.kind==='mutation'){
+      const schema=baseSchema(); const reg={};
+      if(currentQ.seed) runScriptText(currentQ.seed, schema, reg);
+      runScriptText(text, schema, reg);
+      el('result-title').textContent='Estado final dos dados após executar sua resposta';
+      el('result-body').innerHTML=renderMutationState(schema, currentQ.watch, currentQ.compareMode);
+    } else if(currentQ.kind==='procedure'){
+      const schema=baseSchema(); const reg={};
+      const stmts=parseScriptText(text);
+      runScript(stmts, schema, reg);
+      const proc=stmts.find(s=>s.type==='createProcedure');
+      if(!proc) throw new Error('Sua resposta precisa conter um comando CREATE PROCEDURE.');
+      const call=currentQ.testCalls[0];
+      const argExprs=call.args.map(v=> v===null?{type:'null'}:(typeof v==='string'?{type:'lit',v,isString:true}:{type:'lit',v}));
+      const res=execExec({type:'exec',name:proc.name,args:argExprs}, schema, reg, []);
+      if(call.resultKind==='query'){
+        el('result-title').textContent='Testando '+proc.name+'('+call.args.join(', ')+') — resultado retornado';
+        el('result-body').innerHTML= res? renderResultTable(res) : '<p class="empty-note">(sem retorno)</p>';
+      } else {
+        el('result-title').textContent='Testando '+proc.name+'('+call.args.join(', ')+') — estado final dos dados';
+        el('result-body').innerHTML=renderMutationState(schema, call.watch, null);
+      }
+    }
+  } catch(e){
+    el('result-title').textContent='Erro';
+    el('result-body').innerHTML='<div class="err-box">'+escapeHtml(e.message)+'</div>';
+  }
+}
+function wireEvents(){
+  el('btn-run').addEventListener('click',handleRun);
+  el('btn-check').addEventListener('click',handleCheck);
+  el('btn-next').addEventListener('click',()=>{ el('celebrate').className='celebrate'; loadNewQuestion(); renderSidebar(); });
+  el('btn-reroll').addEventListener('click',()=>{ el('celebrate').className='celebrate'; loadNewQuestion(); });
+  el('btn-hint').addEventListener('click',()=>{
+    const topic=TOPICS.find(t=>t.id===currentQ.topicId);
+    const b=el('hint-box'); b.style.display=b.style.display==='none'?'block':'none'; b.textContent=topic.hint;
+  });
+  el('btn-solution').addEventListener('click',()=>{
+    const b=el('sol-box'); solutionViewed=true;
+    b.style.display=b.style.display==='none'?'block':'none';
+    let html='Solução de referência:<code>'+escapeHtml(currentQ.sql)+'</code>';
+    if(currentQ.seed) html+='<span class="seed-note">Considere que isto já existe antes: '+escapeHtml(currentQ.seed)+'</span>';
+    if(currentQ.testCalls) html+='<span class="seed-note">Sua procedure será testada com diferentes chamadas, não só uma.</span>';
+    b.innerHTML=html;
+  });
+  el('sql-input').addEventListener('keydown', e=>{
+    if(e.key==='Enter' && (e.ctrlKey||e.metaKey)){ e.preventDefault(); handleCheck(); }
+  });
+  el('btn-sound').addEventListener('click', ()=>{
+    soundOn=!soundOn;
+    try{ localStorage.setItem(SOUND_KEY, soundOn?'1':'0'); }catch(e){}
+    updateSoundBtn();
+    if(soundOn) playCorrect();
+  });
+}
+
+/* ============================= INIT ============================= */
+renderSchema();
+renderSidebar();
+renderStats();
+wireEvents();
+updateSoundBtn();
+loadNewQuestion();
+
+</script>
+</body>
+</html>
