@@ -28,8 +28,9 @@ A correção é feita **pelo resultado**, não pelo texto da consulta: duas resp
 - **Fila de revisão**: errar uma questão não reseta o progresso da lição — ela só volta pra fila e reaparece mais tarde (podendo ser em outra lição), até você acertar sozinho(a).
 - **Resumo de conteúdo automático** ao errar, além da dica sob demanda e da opção de ver a solução.
 - **Cenários reais de empresa** na fase final, combinando várias categorias num problema só.
-- **Estética "mapa de fases" de jogo retrô**: HUD estilo caixa de diálogo 16-bit, barra lateral como mapa de níveis, banner de "fase concluída" com efeitos, e sons 8-bit sintetizados na hora (sem arquivos de áudio) com botão de mudo.
-- Progresso salvo no navegador (`localStorage`) — sem conta, sem servidor.
+- **Estética "mapa de fases" de jogo retrô**: HUD estilo caixa de diálogo 16-bit, barra lateral como mapa de níveis, banner de "fase concluída" com bonequinho pixelado correndo de um nível para o outro, e sons 8-bit sintetizados na hora (sem arquivos de áudio) com botão de mudo.
+- Progresso salvo no navegador (`localStorage`) — sem conta, sem servidor, sem coleta de dados.
+- **Código de backup**: gera um código para copiar e colar em outro navegador/dispositivo e continuar de onde parou — sem senha e sem e-mail (o site é uma página estática pública, então isso é feito inteiramente no seu navegador).
 
 ## Como rodar localmente
 

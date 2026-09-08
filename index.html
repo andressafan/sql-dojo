@@ -62,6 +62,16 @@ button{font-family:inherit;cursor:pointer;}
 .sound-btn.muted{opacity:.45;}
 .tagline{color:var(--muted);font-size:12.5px;margin:0 4px 18px;}
 
+.backup-card{margin-bottom:18px;}
+.backup-inner{padding:16px 20px;}
+.backup-inner h4{font-size:14px;margin-bottom:8px;}
+.backup-inner p{font-size:12.5px;color:var(--muted);margin:0 0 8px;line-height:1.5;}
+.backup-sep{margin-top:14px !important;padding-top:14px;border-top:1px solid var(--border);}
+textarea.backup-ta{width:100%;background:var(--surface-2);color:var(--ink);border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-size:12px;resize:vertical;outline:none;margin-bottom:8px;}
+textarea.backup-ta:focus{border-color:var(--accent);}
+.backup-actions{display:flex;}
+.backup-msg{color:var(--good);font-weight:600;min-height:1.2em;}
+
 .layout{display:grid;grid-template-columns:270px 1fr;gap:18px;align-items:start;}
 @media (max-width:900px){.layout{grid-template-columns:1fr;}}
 
@@ -172,7 +182,15 @@ table.result td.null{color:var(--faint);font-style:italic;}
 .sparkle.s3{top:42%;right:4%;animation:sparkle-pop .9s ease-out .55s both;}
 @keyframes lvlup-pop{0%{transform:scale(.7);opacity:0;}60%{transform:scale(1.04);opacity:1;}100%{transform:scale(1);opacity:1;}}
 @keyframes sparkle-pop{0%{transform:translateY(0) scale(.5);opacity:0;}30%{opacity:1;transform:translateY(-6px) scale(1.2);}100%{transform:translateY(-20px) scale(.8);opacity:0;}}
-@media (prefers-reduced-motion: reduce){ .celebrate.levelup, .sparkle{ animation:none !important; } }
+
+.pixel-guy{position:absolute;top:50%;margin-top:-18px;display:grid;grid-template-columns:repeat(8,var(--px-unit,4px));grid-template-rows:repeat(9,var(--px-unit,4px));animation:guy-run 1.15s linear forwards,guy-bob .22s steps(2) infinite;pointer-events:none;z-index:2;}
+.pixel-guy i{display:block;}
+@keyframes guy-run{0%{left:-32px;}100%{left:calc(100% + 12px);}}
+@keyframes guy-bob{0%{transform:translateY(0);}50%{transform:translateY(-3px);}100%{transform:translateY(0);}}
+@media (prefers-reduced-motion: reduce){
+  .celebrate.levelup, .sparkle{ animation:none !important; }
+  .pixel-guy{ animation:none !important; left:42% !important; }
+}
 
 .scope-note{color:var(--muted);font-size:12px;text-align:center;margin-top:22px;}
 </style>
@@ -194,8 +212,22 @@ table.result td.null{color:var(--faint);font-style:italic;}
       <div class="hud-stat" title="Para revisar"><span class="hud-ic">🔁</span><b id="stat-review">0</b></div>
     </div>
     <button class="sound-btn" id="btn-sound" title="Ativar/desativar sons">🔊</button>
+    <button class="sound-btn" id="btn-backup" title="Código de backup do progresso">💾</button>
   </div>
   <p class="tagline">Do SELECT básico a procedures — DDL, DML, DCL e TCL numa jornada só, na base <span class="mono">ESCOLA_SQL</span>.</p>
+
+  <div class="card backup-card" id="backup-panel" style="display:none;">
+    <div class="backup-inner">
+      <h4>💾 Código de progresso</h4>
+      <p>Este site é público e não tem contas com senha (e não existe recuperação por e-mail aqui). Em vez disso, copie o código abaixo para continuar de onde parou em outro navegador ou dispositivo — e cole-o de volta lá para carregar. Qualquer pessoa que tiver esse código consegue carregar (e sobrescrever) este progresso, então guarde-o como guardaria uma anotação importante, não como uma senha.</p>
+      <textarea id="backup-code" class="backup-ta mono" readonly rows="2"></textarea>
+      <div class="backup-actions"><button class="btn" id="btn-copy-code">Copiar código</button></div>
+      <p class="backup-sep">Já tem um código salvo de outro navegador? Cole abaixo para carregar:</p>
+      <textarea id="backup-input" class="backup-ta mono" rows="2" placeholder="Cole o código aqui..."></textarea>
+      <div class="backup-actions"><button class="btn primary" id="btn-load-code">Carregar código</button></div>
+      <p class="backup-msg" id="backup-msg"></p>
+    </div>
+  </div>
 
   <div class="layout">
     <nav class="sidebar" id="sidebar"></nav>
@@ -1695,6 +1727,24 @@ function firstUnmasteredUnlocked(){
 }
 if(state.activeTopicIndex==null || !isUnlocked(state.activeTopicIndex)) state.activeTopicIndex = firstUnmasteredUnlocked();
 
+/* ---- código de backup (exportar/importar progresso sem servidor) ---- */
+function encodeProgress(){
+  const payload=JSON.stringify(state);
+  return 'SQLDOJO1:'+btoa(unescape(encodeURIComponent(payload)));
+}
+function decodeProgress(code){
+  const trimmed=(code||'').trim();
+  if(!trimmed.startsWith('SQLDOJO1:')) throw new Error('Código inválido — verifique se copiou tudo certinho.');
+  let json;
+  try{ json=decodeURIComponent(escape(atob(trimmed.slice('SQLDOJO1:'.length)))); }
+  catch(e){ throw new Error('Código inválido — verifique se copiou tudo certinho.'); }
+  let obj;
+  try{ obj=JSON.parse(json); }
+  catch(e){ throw new Error('Código inválido — verifique se copiou tudo certinho.'); }
+  if(!obj || typeof obj!=='object' || !obj.topics || !Array.isArray(obj.reviewQueue)) throw new Error('Esse código não parece ser um progresso válido do SQL Dojo.');
+  return obj;
+}
+
 let currentTopic = TOPICS[state.activeTopicIndex];
 let currentQ = null;
 let solutionViewed = false;
@@ -2019,6 +2069,32 @@ function handleCheck(){
   }
   saveState(); renderSidebar(); renderStats(); renderQuestionHead(topic);
 }
+/* ---- bonequinho pixelado (corre pela faixa de "fase concluída") ---- */
+const PIXEL_GUY_CELLS = {
+  skin:  [[3,0],[4,0],[3,1],[4,1],[3,2],[4,2]],
+  hair:  [[5,0],[5,1]],
+  hoodie:[[2,3],[3,3],[4,3],[5,3],[1,4],[2,4],[3,4],[4,4],[5,4],[2,5],[3,5],[4,5],[1,6],[2,6],[4,6],[5,6],[0,7],[1,7],[5,7],[6,7]],
+  laptop:[[6,3],[6,4]]
+};
+function buildPixelGuy(unit){
+  const wrap=document.createElement('div');
+  wrap.className='pixel-guy';
+  wrap.style.setProperty('--px-unit', unit+'px');
+  const groups=[
+    {cells:PIXEL_GUY_CELLS.skin, color:'#E8B08A'},
+    {cells:PIXEL_GUY_CELLS.hair, color:'#3B2A20'},
+    {cells:PIXEL_GUY_CELLS.hoodie, color:'var(--accent)'},
+    {cells:PIXEL_GUY_CELLS.laptop, color:'var(--gold)'}
+  ];
+  groups.forEach(g=>{
+    g.cells.forEach(([x,y])=>{
+      const i=document.createElement('i');
+      i.style.gridColumn=String(x+1); i.style.gridRow=String(y+1); i.style.background=g.color;
+      wrap.appendChild(i);
+    });
+  });
+  return wrap;
+}
 function celebrateMastery(topic){
   const idx=TOPICS.findIndex(t=>t.id===topic.id);
   const isLastOverall=idx===TOPICS.length-1;
@@ -2037,6 +2113,7 @@ function celebrateMastery(topic){
     box.innerHTML='<div><b>🎉 Lição "'+escapeHtml(topic.title)+'" concluída!</b><span class="sub">Próxima: '+escapeHtml(next.title)+'.</span></div>';
     state.activeTopicIndex=idx+1; currentTopic=TOPICS[idx+1];
   }
+  if(isLastOfCategory){ box.appendChild(buildPixelGuy(4)); }
 }
 function handleRun(){
   const text=el('sql-input').value.trim();
@@ -2101,6 +2178,34 @@ function wireEvents(){
     try{ localStorage.setItem(SOUND_KEY, soundOn?'1':'0'); }catch(e){}
     updateSoundBtn();
     if(soundOn) playCorrect();
+  });
+  el('btn-backup').addEventListener('click', ()=>{
+    const panel=el('backup-panel');
+    const showing = panel.style.display!=='none';
+    panel.style.display = showing?'none':'block';
+    if(!showing){ el('backup-code').value=encodeProgress(); el('backup-msg').textContent=''; el('backup-input').value=''; }
+  });
+  el('btn-copy-code').addEventListener('click', async ()=>{
+    const ta=el('backup-code'); ta.select();
+    try{
+      if(navigator.clipboard && navigator.clipboard.writeText){ await navigator.clipboard.writeText(ta.value); }
+      else { document.execCommand('copy'); }
+      el('backup-msg').textContent='✅ Copiado! Cole em outro navegador para continuar de onde parou.';
+    }catch(e){ el('backup-msg').textContent='Não consegui copiar automaticamente — selecione o texto acima e copie com Ctrl+C.'; }
+  });
+  el('btn-load-code').addEventListener('click', ()=>{
+    let loaded;
+    try{ loaded=decodeProgress(el('backup-input').value); }
+    catch(e){ el('backup-msg').textContent='❌ '+e.message; return; }
+    if(!confirm('Isso vai substituir o progresso atual deste navegador pelo progresso do código colado. Continuar?')) return;
+    state=loaded;
+    TOPICS.forEach(t=>{ if(!state.topics[t.id]) state.topics[t.id]={learned:[],mastered:false,attempts:0,correct:0}; });
+    if(!Array.isArray(state.reviewQueue)) state.reviewQueue=[];
+    if(state.activeTopicIndex==null || !isUnlocked(state.activeTopicIndex)) state.activeTopicIndex=firstUnmasteredUnlocked();
+    currentTopic=TOPICS[state.activeTopicIndex];
+    saveState(); renderSidebar(); renderStats(); loadNewQuestion();
+    el('backup-msg').textContent='✅ Progresso carregado com sucesso!';
+    el('backup-code').value=encodeProgress();
   });
 }
 
