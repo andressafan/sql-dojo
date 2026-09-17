@@ -18,12 +18,16 @@ A correção é feita **pelo resultado**, não pelo texto da consulta: duas resp
 
 - **22 lições em 6 categorias/fases**, na ordem DQL → DML → DDL → TCL → DCL → Procedures & Cenários Reais, cada uma liberada só depois da anterior ser concluída.
 - **Motor de SQL próprio**, cobrindo:
-  - `SELECT` com `WHERE`, `LIKE`, `IN`, `BETWEEN`, `IS NULL`, `ORDER BY`, `GROUP BY`/`HAVING`, `INNER`/`LEFT JOIN`, agregações (`COUNT`/`SUM`/`AVG`/`MIN`/`MAX`), subconsultas escalares e com `IN`, autorrelacionamento (self-join), `COALESCE`/`IFNULL`, `UPPER`/`LOWER`/`ROUND`;
+  - `SELECT` com `WHERE`, `LIKE`, `IN`, `BETWEEN`, `IS NULL`, `ORDER BY`, `GROUP BY`/`HAVING`, `INNER`/`LEFT JOIN`, agregações (`COUNT`/`SUM`/`AVG`/`MIN`/`MAX`), subconsultas escalares e com `IN`, autorrelacionamento (self-join), `COALESCE`/`IFNULL`/`CONCAT`/`UPPER`/`LOWER`/`ROUND`;
+  - **Funções estatísticas**: `STDDEV_SAMP`/`STDDEV_POP`/`VAR_SAMP`/`VAR_POP` (e os apelidos `STDDEV`/`STDEV`/`VARIANCE`), `MEDIAN`, `MODE() WITHIN GROUP (ORDER BY ...)`, `PERCENTILE_CONT(p) WITHIN GROUP (ORDER BY ...)`;
+  - **Consultas ao dicionário de dados**: `INFORMATION_SCHEMA.TABLES`, `COLUMNS`, `TABLE_CONSTRAINTS`, `KEY_COLUMN_USAGE`;
   - `INSERT`, `UPDATE`, `DELETE`;
   - `CREATE TABLE`, `ALTER TABLE` (`ADD`/`DROP`/`MODIFY COLUMN`, `ADD CONSTRAINT ... FOREIGN KEY`), `DROP TABLE`, com `PRIMARY KEY`, `NOT NULL`, `UNIQUE`, `FOREIGN KEY`;
+  - `CREATE VIEW` (views de leitura, incluindo com `JOIN`/agregação);
+  - `CREATE TRIGGER` (`BEFORE`/`AFTER` `INSERT`/`UPDATE`/`DELETE`, com `NEW`/`OLD` e `SET NEW.col = ...`);
   - `BEGIN`/`COMMIT`/`ROLLBACK` (transações de verdade, com desfazimento de estado);
   - `GRANT`/`REVOKE`;
-  - `CREATE PROCEDURE`/`EXEC` com parâmetros (`@param`).
+  - `CREATE PROCEDURE`/`EXEC` com parâmetros (`@param`), incluindo `DECLARE` de variáveis e cursores, `IF`/`ELSEIF`/`ELSE` (estilo MySQL com `THEN`/`END IF` e estilo T-SQL sem `THEN`), `WHILE`/`LOOP`/`LEAVE`, e cursores completos (`DECLARE ... CURSOR`, `OPEN`, `FETCH ... INTO`, `CLOSE`, `HANDLER FOR NOT FOUND`).
 - **Correção pelo resultado**, não pelo texto — aceita qualquer consulta equivalente.
 - **Fila de revisão**: errar uma questão não reseta o progresso da lição — ela só volta pra fila e reaparece mais tarde (podendo ser em outra lição), até você acertar sozinho(a).
 - **Resumo de conteúdo automático** ao errar, além da dica sob demanda e da opção de ver a solução.

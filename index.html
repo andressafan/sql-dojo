@@ -194,6 +194,7 @@ table.result td.null{color:var(--faint);font-style:italic;}
 
 .scope-note{color:var(--muted);font-size:12px;text-align:center;margin-top:22px;}
 </style>
+
 </head>
 <body>
 
@@ -273,7 +274,7 @@ table.result td.null{color:var(--faint);font-style:italic;}
         </div>
       </div>
 
-      <p class="scope-note">22 lições em 6 categorias (DQL, DML, DDL, TCL, DCL, Procedures). Não há controle de fluxo (IF/loops) dentro de procedures, nem triggers — fica para uma próxima fase.</p>
+      <p class="scope-note">22 lições em 6 categorias (DQL, DML, DDL, TCL, DCL, Procedures) — com suporte a views, triggers, cursores, IF/WHILE dentro de procedures, funções estatísticas e consultas ao information_schema.</p>
     </div>
   </div>
 </div>
@@ -397,7 +398,10 @@ function baseSchema(){
   };
 }
 let NEXT_PERM_ID = 100;
-const AGG_FUNCS = ['COUNT','SUM','AVG','MIN','MAX'];
+const AGG_FUNCS = ['COUNT','SUM','AVG','MIN','MAX',
+  'STDDEV_SAMP','STDDEV_POP','STDDEV','STDEV','STDEVP',
+  'VAR_SAMP','VAR_POP','VARIANCE',
+  'MEDIAN','MODE','PERCENTILE_CONT'];
 
 /* ============================= TOKENIZER ============================= */
 function tokenize(sql){
@@ -439,7 +443,7 @@ function tokenize(sql){
     }
     const two=sql.substr(i,2);
     if(['<>','!=','<=','>='].includes(two)){ toks.push({type:'op',v:two==='!='?'<>':two}); i+=2; continue; }
-    if('=<>(),.;*+-/%'.includes(c)){ toks.push({type:'op',v:c}); i++; continue; }
+    if('=<>(),.;*+-/%:'.includes(c)){ toks.push({type:'op',v:c}); i++; continue; }
     throw new Error('Caractere inesperado: "'+c+'"');
   }
   toks.push({type:'eof'});
@@ -480,6 +484,14 @@ class Parser{
   parseAnyStatement(){
     const t=this.peek();
     if(t.type!=='ident') this.err('Esperava um comando SQL');
+    /* rótulo antes de LOOP ou WHILE: leitura: LOOP ... END LOOP; */
+    if(this.peekAt(1) && this.peekAt(1).type==='op' && this.peekAt(1).v===':' &&
+       !['BEGIN','END'].includes(t.v)){
+      const label=t.v; this.pos+=2;
+      if(this.isKw('LOOP')) return this.parseLoop(label);
+      if(this.isKw('WHILE')) return this.parseWhile(label);
+      this.err('Um rótulo só pode vir antes de LOOP ou WHILE');
+    }
     switch(t.v){
       case 'SELECT': return this.parseSelectCore();
       case 'INSERT': return this.parseInsert();
@@ -495,6 +507,16 @@ class Parser{
       case 'GRANT': return this.parseGrant();
       case 'REVOKE': return this.parseRevoke();
       case 'EXEC': case 'EXECUTE': case 'CALL': return this.parseExec();
+      case 'DECLARE': return this.parseDeclare();
+      case 'SET': return this.parseSetStmt();
+      case 'IF': return this.parseIf();
+      case 'WHILE': return this.parseWhile(null);
+      case 'LOOP': return this.parseLoop(null);
+      case 'LEAVE': { this.advance(); if(this.peek().type!=='ident') this.err('Esperava o rótulo do LOOP/WHILE depois de LEAVE'); const label=this.advance().v; return {type:'leave', label}; }
+      case 'OPEN': { this.advance(); if(this.peek().type!=='ident') this.err('Esperava o nome de um cursor'); const name=this.advance().v; return {type:'open', name}; }
+      case 'CLOSE': { this.advance(); if(this.peek().type!=='ident') this.err('Esperava o nome de um cursor'); const name=this.advance().v; return {type:'close', name}; }
+      case 'FETCH': return this.parseFetch();
+      case 'PRINT': { this.advance(); const expr=this.parseOr(); return {type:'print', expr}; }
       default: this.err('Comando não reconhecido: "'+t.v+'"');
     }
   }
@@ -560,8 +582,16 @@ class Parser{
   }
   parseTableRef(){
     if(this.peek().type!=='ident') this.err('Esperava o nome de uma tabela');
-    const name=this.advance().v;
-    let alias=name;
+    let name=this.advance().v;
+    let defaultAlias=name;
+    if(this.isOp('.')){
+      this.advance();
+      if(this.peek().type!=='ident') this.err('Esperava um nome depois de "."');
+      const sub=this.advance().v;
+      name=name+'.'+sub;
+      defaultAlias=sub;
+    }
+    let alias=defaultAlias;
     if(this.isKw('AS')){ this.advance(); alias=this.parseAliasName(); }
     else if(this.peek().type==='ident' && !CLAUSE_KW.includes(this.peek().v)){ alias=this.advance().v; }
     return {name,alias};
@@ -624,7 +654,16 @@ class Parser{
           while(this.isOp(',')){ this.advance(); args.push(this.parseOr()); }
         }
         this.eatOp(')');
-        return {type:'call',name,args};
+        let withinGroupOrderBy=null, withinGroupDir='ASC';
+        if(this.isKw('WITHIN')){
+          this.advance(); this.eatKw('GROUP'); this.eatOp('(');
+          this.eatKw('ORDER'); this.eatKw('BY');
+          withinGroupOrderBy=this.parseOr();
+          if(this.isKw('ASC')){ this.advance(); }
+          else if(this.isKw('DESC')){ this.advance(); withinGroupDir='DESC'; }
+          this.eatOp(')');
+        }
+        return {type:'call',name,args,withinGroupOrderBy,withinGroupDir};
       }
       if(this.isOp('.')){ this.advance(); if(this.peek().type!=='ident') this.err('Esperava um nome de coluna'); const col=this.advance().v; return {type:'col',table:name,name:col}; }
       return {type:'col',table:null,name};
@@ -694,12 +733,188 @@ class Parser{
     return {type:'delete', table, where};
   }
 
-  /* ---- DDL: CREATE TABLE / CREATE PROCEDURE / ALTER / DROP ---- */
+  /* ---- DDL: CREATE TABLE / CREATE PROCEDURE / CREATE VIEW / CREATE TRIGGER / ALTER / DROP ---- */
   parseCreate(){
     this.eatKw('CREATE');
     if(this.isKw('TABLE')) return this.parseCreateTable();
     if(this.isKw('PROCEDURE')||this.isKw('PROC')) return this.parseCreateProcedure();
-    this.err('Só é possível CREATE TABLE ou CREATE PROCEDURE');
+    if(this.isKw('VIEW')) return this.parseCreateView();
+    if(this.isKw('TRIGGER')) return this.parseCreateTrigger();
+    this.err('Só é possível CREATE TABLE, CREATE VIEW, CREATE TRIGGER ou CREATE PROCEDURE');
+  }
+  parseCreateView(){
+    this.eatKw('VIEW');
+    if(this.peek().type!=='ident') this.err('Esperava o nome da view');
+    const name=this.advance().v;
+    this.eatKw('AS');
+    const query=this.parseSelectCore();
+    return {type:'createView', name, query};
+  }
+  /* aceita a ordem do MySQL (BEFORE/AFTER evento ON tabela FOR EACH ROW) e a do SQL Server (ON tabela AFTER evento AS) */
+  parseCreateTrigger(){
+    this.eatKw('TRIGGER');
+    if(this.peek().type!=='ident') this.err('Esperava o nome do trigger');
+    const name=this.advance().v;
+    let timing=null, event=null, table=null;
+    for(let guard=0; guard<6; guard++){
+      if(this.isKw('BEFORE')){ this.advance(); timing='BEFORE'; continue; }
+      if(this.isKw('AFTER')){ this.advance(); timing='AFTER'; continue; }
+      if(this.isKw('INSTEAD')){ this.advance(); this.eatKw('OF'); timing='INSTEAD OF'; continue; }
+      if(this.isKw('INSERT')){ this.advance(); event='INSERT'; continue; }
+      if(this.isKw('UPDATE')){ this.advance(); event='UPDATE'; continue; }
+      if(this.isKw('DELETE')){ this.advance(); event='DELETE'; continue; }
+      if(this.isKw('ON')){ this.advance(); if(this.peek().type!=='ident') this.err('Esperava o nome de uma tabela depois de ON'); table=this.advance().v; continue; }
+      break;
+    }
+    if(!timing||!event||!table) this.err('CREATE TRIGGER precisa de BEFORE/AFTER, do evento (INSERT/UPDATE/DELETE) e de ON tabela');
+    if(this.isKw('FOR')){ this.advance(); this.eatKw('EACH'); this.eatKw('ROW'); }
+    if(this.isKw('AS')) this.advance();
+    const body=this.parseBeginEndBlock();
+    return {type:'createTrigger', name, timing, event, table, body};
+  }
+  /* consome um bloco BEGIN...END (BEGIN é opcional na entrada, mas END é sempre exigido) */
+  parseBeginEndBlock(){
+    if(this.isKw('BEGIN')) this.advance();
+    const stmts=[];
+    while(!this.isKw('END')){
+      while(this.isOp(';')) this.advance();
+      if(this.isKw('END')) break;
+      if(this.peek().type==='eof') this.err('Bloco não foi fechado (esperava END)');
+      stmts.push(this.parseAnyStatement());
+      while(this.isOp(';')) this.advance();
+    }
+    this.eatKw('END');
+    return stmts;
+  }
+  /* lê comandos até encontrar uma das palavras-chave de parada (sem consumi-la) — usado por IF...THEN...END IF */
+  parseStmtsUntil(stopKeywords){
+    const stmts=[];
+    while(true){
+      while(this.isOp(';')) this.advance();
+      const t=this.peek();
+      if(t.type==='ident' && stopKeywords.includes(t.v)) break;
+      if(t.type==='eof') this.err('Bloco não foi fechado corretamente (esperava '+stopKeywords.join(' ou ')+')');
+      stmts.push(this.parseAnyStatement());
+      while(this.isOp(';')) this.advance();
+    }
+    return stmts;
+  }
+  /* ---- DECLARE: variável, cursor ou handler ---- */
+  parseDeclare(){
+    this.eatKw('DECLARE');
+    if(this.isKw('CONTINUE')||this.isKw('EXIT')){
+      const action=this.advance().v;
+      this.eatKw('HANDLER'); this.eatKw('FOR');
+      let condition;
+      if(this.isKw('NOT')){ this.advance(); this.eatKw('FOUND'); condition='NOT FOUND'; }
+      else if(this.isKw('SQLEXCEPTION')){ this.advance(); condition='SQLEXCEPTION'; }
+      else { condition=this.advance().v; }
+      const body=this.parseAnyStatement();
+      return {type:'declareHandler', action, condition, body};
+    }
+    let name, isParam=false;
+    if(this.peek().type==='param'){ name=this.advance().v; isParam=true; }
+    else if(this.peek().type==='ident'){ name=this.advance().v; }
+    else this.err('Esperava um nome depois de DECLARE');
+    if(this.isKw('CURSOR')){
+      this.advance(); this.eatKw('FOR');
+      const query=this.parseSelectCore();
+      return {type:'declareCursor', name, query};
+    }
+    const typeStr=this.parseTypeSpec();
+    let defaultExpr=null;
+    if(this.isKw('DEFAULT')){ this.advance(); defaultExpr=this.parseOr(); }
+    return {type:'declareVar', name, isParam, typeStr, defaultExpr};
+  }
+  /* ---- SET autônomo: variável local, @parâmetro ou NEW.col/OLD.col (dentro de trigger) ---- */
+  parseSetStmt(){
+    this.eatKw('SET');
+    const assigns=[this.parseSetAssign()];
+    while(this.isOp(',')){ this.advance(); assigns.push(this.parseSetAssign()); }
+    return {type:'setLocal', assigns};
+  }
+  parseSetAssign(){
+    let target;
+    if(this.peek().type==='param'){
+      const name=this.advance().v;
+      target={kind:'param', name};
+    } else if(this.peek().type==='ident'){
+      const first=this.advance().v;
+      if(this.isOp('.')){
+        this.advance();
+        if(this.peek().type!=='ident') this.err('Esperava um nome de coluna depois de "."');
+        const col=this.advance().v;
+        target={kind:'field', table:first, name:col};
+      } else {
+        target={kind:'local', name:first};
+      }
+    } else this.err('Esperava o alvo de um SET');
+    this.eatOp('=');
+    const expr=this.parseOr();
+    return {target, expr};
+  }
+  /* ---- IF/ELSEIF/ELSE (estilo MySQL com THEN...END IF, e estilo T-SQL sem THEN) ---- */
+  parseIf(){
+    this.eatKw('IF');
+    const branches=[];
+    const cond=this.parseOr();
+    if(this.isKw('THEN')){
+      this.advance();
+      const body=this.parseStmtsUntil(['ELSEIF','ELSE','END']);
+      branches.push({cond, body});
+      while(this.isKw('ELSEIF')){
+        this.advance();
+        const c2=this.parseOr(); this.eatKw('THEN');
+        const b2=this.parseStmtsUntil(['ELSEIF','ELSE','END']);
+        branches.push({cond:c2, body:b2});
+      }
+      let elseBody=null;
+      if(this.isKw('ELSE')){ this.advance(); elseBody=this.parseStmtsUntil(['END']); }
+      this.eatKw('END'); this.eatKw('IF');
+      return {type:'if', branches, elseBody};
+    }
+    const body = this.isKw('BEGIN') ? this.parseBeginEndBlock() : [this.parseAnyStatement()];
+    branches.push({cond, body});
+    while(this.isOp(';')) this.advance();
+    let elseBody=null;
+    if(this.isKw('ELSE')){
+      this.advance();
+      elseBody = this.isKw('BEGIN') ? this.parseBeginEndBlock() : [this.parseAnyStatement()];
+    }
+    return {type:'if', branches, elseBody};
+  }
+  /* ---- WHILE (estilo MySQL WHILE...DO...END WHILE e estilo T-SQL WHILE...BEGIN...END) ---- */
+  parseWhile(label){
+    this.eatKw('WHILE');
+    const cond=this.parseOr();
+    let body;
+    if(this.isKw('DO')){
+      this.advance();
+      body=this.parseStmtsUntil(['END']);
+      this.eatKw('END'); this.eatKw('WHILE');
+    } else if(this.isKw('BEGIN')){
+      body=this.parseBeginEndBlock();
+    } else {
+      body=[this.parseAnyStatement()];
+    }
+    return {type:'while', cond, label, body};
+  }
+  /* ---- LOOP rotulado (usado com cursores): label: LOOP ... LEAVE label; ... END LOOP; ---- */
+  parseLoop(label){
+    this.eatKw('LOOP');
+    const body=this.parseStmtsUntil(['END']);
+    this.eatKw('END'); this.eatKw('LOOP');
+    return {type:'while', cond:null, label, body};
+  }
+  parseFetch(){
+    this.eatKw('FETCH');
+    if(this.peek().type!=='ident') this.err('Esperava o nome de um cursor');
+    const name=this.advance().v;
+    this.eatKw('INTO');
+    if(this.peek().type!=='ident') this.err('Esperava o nome de uma variável depois de INTO');
+    const targets=[this.advance().v];
+    while(this.isOp(',')){ this.advance(); if(this.peek().type!=='ident') this.err('Esperava o nome de uma variável'); targets.push(this.advance().v); }
+    return {type:'fetch', name, targets};
   }
   parseTypeSpec(){
     if(this.peek().type!=='ident') this.err('Esperava um tipo de dado');
@@ -761,16 +976,8 @@ class Parser{
     };
     if(this.isOp('(')){ this.advance(); readParams(); this.eatOp(')'); }
     else { readParams(); }
-    this.eatKw('AS');
-    if(this.isKw('BEGIN')) this.advance();
-    const body=[];
-    while(!this.isKw('END')){
-      while(this.isOp(';')) this.advance();
-      if(this.isKw('END')) break;
-      body.push(this.parseAnyStatement());
-      while(this.isOp(';')) this.advance();
-    }
-    this.eatKw('END');
+    if(this.isKw('AS')) this.advance();
+    const body=this.parseBeginEndBlock();
     return {type:'createProcedure', name, params, body};
   }
   parseExec(){
@@ -862,8 +1069,70 @@ function parseSQL(text){ return new Parser(tokenize(text)).parseStatement(); }
 function parseScriptText(text){ return new Parser(tokenize(text)).parseScript(); }
 
 /* ============================= EVALUATOR (expressões) ============================= */
+/* CURRENT_REG: registro corrente de procedures/views/triggers (escopo dinâmico, como CURRENT_PARAMS).
+   CURRENT_FRAME: quadro (locals/cursors/handlers/linha NEW-OLD) da procedure/trigger em execução, ou null. */
 let CURRENT_PARAMS = {};
-function getTable(schema,name){ const t=schema[name.toUpperCase()]; if(!t) throw new Error('Tabela "'+name+'" não existe. Tabelas disponíveis: '+Object.keys(schema).join(', ')+'.'); return t; }
+let CURRENT_REG = {procs:{},views:{},triggers:{}};
+let CURRENT_FRAME = null;
+function ensureReg(reg){ reg=reg||{}; reg.procs=reg.procs||{}; reg.views=reg.views||{}; reg.triggers=reg.triggers||{}; return reg; }
+function newFrame(){ return {locals:{}, cursors:{}, handlers:[], row:null, amb:new Set()}; }
+function frameCtx(){ return {row: CURRENT_FRAME?CURRENT_FRAME.row:null, group:null}; }
+function frameAmb(){ return (CURRENT_FRAME && CURRENT_FRAME.amb) || new Set(); }
+class LeaveSignal{ constructor(label){ this.label=label; } }
+const META_TABLE_NAMES=['INFORMATION_SCHEMA.TABLES','INFORMATION_SCHEMA.COLUMNS','INFORMATION_SCHEMA.TABLE_CONSTRAINTS','INFORMATION_SCHEMA.KEY_COLUMN_USAGE'];
+function buildMetaTable(schema,key){
+  if(key==='INFORMATION_SCHEMA.TABLES'){
+    const rows=Object.keys(schema).map(t=>({TABLE_NAME:t,TABLE_TYPE:'BASE TABLE'}));
+    return {columns:['TABLE_NAME','TABLE_TYPE'],pk:null,notNull:[],unique:[],types:{},rows};
+  }
+  if(key==='INFORMATION_SCHEMA.COLUMNS'){
+    const rows=[];
+    Object.keys(schema).forEach(t=>{
+      const tbl=schema[t];
+      tbl.columns.forEach(c=>{
+        rows.push({TABLE_NAME:t,COLUMN_NAME:c,DATA_TYPE:(tbl.types&&tbl.types[c])||null,
+          IS_NULLABLE:((tbl.notNull||[]).includes(c)||c===tbl.pk)?'NO':'YES',
+          COLUMN_KEY:c===tbl.pk?'PRI':((tbl.unique||[]).includes(c)?'UNI':'')});
+      });
+    });
+    return {columns:['TABLE_NAME','COLUMN_NAME','DATA_TYPE','IS_NULLABLE','COLUMN_KEY'],pk:null,notNull:[],unique:[],types:{},rows};
+  }
+  if(key==='INFORMATION_SCHEMA.TABLE_CONSTRAINTS'){
+    const rows=[];
+    Object.keys(schema).forEach(t=>{
+      const tbl=schema[t];
+      if(tbl.pk) rows.push({TABLE_NAME:t,CONSTRAINT_NAME:'PK_'+t+'_'+tbl.pk,CONSTRAINT_TYPE:'PRIMARY KEY'});
+      (tbl.unique||[]).forEach(c=>rows.push({TABLE_NAME:t,CONSTRAINT_NAME:'UK_'+t+'_'+c,CONSTRAINT_TYPE:'UNIQUE'}));
+      (tbl.foreignKeys||[]).forEach(fk=>rows.push({TABLE_NAME:t,CONSTRAINT_NAME:'FK_'+t+'_'+fk.col,CONSTRAINT_TYPE:'FOREIGN KEY'}));
+    });
+    return {columns:['TABLE_NAME','CONSTRAINT_NAME','CONSTRAINT_TYPE'],pk:null,notNull:[],unique:[],types:{},rows};
+  }
+  if(key==='INFORMATION_SCHEMA.KEY_COLUMN_USAGE'){
+    const rows=[];
+    Object.keys(schema).forEach(t=>{
+      const tbl=schema[t];
+      (tbl.foreignKeys||[]).forEach(fk=>rows.push({TABLE_NAME:t,COLUMN_NAME:fk.col,REFERENCED_TABLE_NAME:fk.refTable,REFERENCED_COLUMN_NAME:fk.refCol}));
+    });
+    return {columns:['TABLE_NAME','COLUMN_NAME','REFERENCED_TABLE_NAME','REFERENCED_COLUMN_NAME'],pk:null,notNull:[],unique:[],types:{},rows};
+  }
+  return null;
+}
+function materializeView(viewAst,schema){
+  const res=executeSelect(viewAst.query,schema);
+  const rows=res.rows.map(r=>{ const o={}; res.columns.forEach((c,i)=>o[c.toUpperCase()]=r[i]); return o; });
+  return {columns:res.columns.map(c=>c.toUpperCase()),pk:null,notNull:[],unique:[],types:{},rows,isView:true};
+}
+/* getTable: usado no caminho de LEITURA (SELECT) — resolve tabelas reais, views e as tabelas de metadados do information_schema.
+   getRealTable: usado por INSERT/UPDATE/DELETE/ALTER/DROP — só resolve tabelas reais e mutáveis (views não podem ser alvo de escrita aqui). */
+function getRealTable(schema,name){ const t=schema[name.toUpperCase()]; if(!t) throw new Error('Tabela "'+name+'" não existe. Tabelas disponíveis: '+Object.keys(schema).join(', ')+'.'); return t; }
+function getTable(schema,name){
+  const key=name.toUpperCase();
+  if(META_TABLE_NAMES.includes(key)) return buildMetaTable(schema,key);
+  if(CURRENT_REG && CURRENT_REG.views && CURRENT_REG.views[key]) return materializeView(CURRENT_REG.views[key],schema);
+  const t=schema[key];
+  if(!t) throw new Error('Tabela "'+name+'" não existe. Tabelas disponíveis: '+Object.keys(schema).join(', ')+'.');
+  return t;
+}
 function makeCtx(alias,rowObj){ const A=alias.toUpperCase(); const byAlias={}; byAlias[A]=rowObj; const flat={...rowObj}; return {byAlias,flat,aliasOrder:[A]}; }
 function mergeCtx(a,b){ return {byAlias:{...a.byAlias,...b.byAlias}, flat:{...a.flat,...b.flat}, aliasOrder:[...a.aliasOrder,...b.aliasOrder]}; }
 function baseCtxRows(schema,alias,tableName){ const tbl=getTable(schema,tableName); return tbl.rows.map(r=>makeCtx(alias,r)); }
@@ -877,7 +1146,8 @@ function computeAmbiguous(schema,participating){
 function getColumnValue(ctxRow,node,amb){
   if(node.table){
     const key=node.table.toUpperCase();
-    const tbl=ctxRow.byAlias[key];
+    let tbl=ctxRow.byAlias[key];
+    if(!tbl && CURRENT_FRAME && CURRENT_FRAME.row && CURRENT_FRAME.row.byAlias[key]) tbl=CURRENT_FRAME.row.byAlias[key];
     if(!tbl) throw new Error('Alias/tabela "'+node.table+'" não encontrado nesta consulta.');
     if(!(node.name in tbl)) throw new Error('Coluna "'+node.name+'" não existe em '+node.table+'.');
     return tbl[node.name];
@@ -925,13 +1195,19 @@ function evalExpr(node,ctx,amb,schema){
     case 'lit': return node.v;
     case 'null': return null;
     case 'param': {
-      const src = (ctx && ctx.params) ? ctx.params : CURRENT_PARAMS;
-      if(!(node.name in src)) throw new Error('Parâmetro @'+node.name+' não foi definido.');
-      return src[node.name];
+      const key='@'+node.name;
+      if(CURRENT_FRAME && Object.prototype.hasOwnProperty.call(CURRENT_FRAME.locals,key)) return CURRENT_FRAME.locals[key];
+      throw new Error('Parâmetro/variável @'+node.name+' não foi definido.');
     }
     case 'col': {
+      if(node.table===null && CURRENT_FRAME && Object.prototype.hasOwnProperty.call(CURRENT_FRAME.locals,node.name)){
+        return CURRENT_FRAME.locals[node.name];
+      }
       const row=ctx.row || (ctx.group && ctx.group[0]);
-      if(!row) throw new Error('Contexto de linha indisponível para "'+node.name+'".');
+      if(!row){
+        if(node.table===null) throw new Error('Variável "'+node.name+'" não foi declarada (use DECLARE), ou a coluna não existe neste contexto.');
+        throw new Error('Contexto de linha indisponível para "'+node.name+'".');
+      }
       return getColumnValue(row,node,amb);
     }
     case 'neg': { const v=evalExpr(node.expr,ctx,amb,schema); return v==null?null:-v; }
@@ -962,13 +1238,57 @@ function evalCall(node,ctx,amb,schema){
       if(node.args.length===1 && node.args[0].type==='star') return g.length;
       return g.map(r=>evalExpr(node.args[0],{row:r,group:null,params:ctx.params},amb,schema)).filter(v=>v!=null).length;
     }
+    /* agregados ordenados: MEDIAN, MODE e PERCENTILE_CONT(p) WITHIN GROUP (ORDER BY coluna) */
+    if(fname==='PERCENTILE_CONT'){
+      if(!node.withinGroupOrderBy) throw new Error('PERCENTILE_CONT precisa de WITHIN GROUP (ORDER BY coluna).');
+      const p=evalExpr(node.args[0],{row:g[0]||null,group:null,params:ctx.params},amb,schema);
+      const vals=g.map(r=>evalExpr(node.withinGroupOrderBy,{row:r,group:null,params:ctx.params},amb,schema)).filter(v=>v!=null).map(Number).sort((a,b)=>a-b);
+      if(!vals.length) return null;
+      if(vals.length===1) return vals[0];
+      const idx=p*(vals.length-1), lo=Math.floor(idx), hi=Math.ceil(idx);
+      if(lo===hi) return vals[lo];
+      return vals[lo]+(vals[hi]-vals[lo])*(idx-lo);
+    }
+    if(fname==='MODE'){
+      let vals;
+      if(node.withinGroupOrderBy) vals=g.map(r=>evalExpr(node.withinGroupOrderBy,{row:r,group:null,params:ctx.params},amb,schema)).filter(v=>v!=null);
+      else if(node.args.length) vals=g.map(r=>evalExpr(node.args[0],{row:r,group:null,params:ctx.params},amb,schema)).filter(v=>v!=null);
+      else throw new Error('MODE precisa de WITHIN GROUP (ORDER BY coluna) ou de um argumento.');
+      if(!vals.length) return null;
+      const counts=new Map();
+      vals.forEach(v=>{ const k=JSON.stringify(v); counts.set(k,(counts.get(k)||0)+1); });
+      let bestCount=-1, bestVal=null;
+      vals.forEach(v=>{ const k=JSON.stringify(v); const c=counts.get(k); if(c>bestCount){ bestCount=c; bestVal=v; } });
+      return bestVal;
+    }
+    if(fname==='MEDIAN'){
+      const vals=g.map(r=>evalExpr(node.args[0],{row:r,group:null,params:ctx.params},amb,schema)).filter(v=>v!=null).map(Number).sort((a,b)=>a-b);
+      if(!vals.length) return null;
+      const mid=Math.floor(vals.length/2);
+      return vals.length%2 ? vals[mid] : (vals[mid-1]+vals[mid])/2;
+    }
     const rawVals=g.map(r=>evalExpr(node.args[0],{row:r,group:null,params:ctx.params},amb,schema)).filter(v=>v!=null);
     if(fname==='SUM') return rawVals.reduce((a,b)=>a+Number(b),0);
     if(fname==='AVG') return rawVals.length? rawVals.reduce((a,b)=>a+Number(b),0)/rawVals.length : null;
     if(fname==='MIN') return rawVals.length? rawVals.reduce((a,c)=>compareForSort(c,a)<0?c:a) : null;
     if(fname==='MAX') return rawVals.length? rawVals.reduce((a,c)=>compareForSort(c,a)>0?c:a) : null;
+    /* desvio padrão e variância, amostral e populacional */
+    const nums=rawVals.map(Number);
+    if(['STDDEV_SAMP','STDDEV','STDEV','VAR_SAMP','VARIANCE'].includes(fname)){
+      if(nums.length<2) return null;
+      const mean=nums.reduce((a,b)=>a+b,0)/nums.length;
+      const variance=nums.reduce((a,b)=>a+(b-mean)*(b-mean),0)/(nums.length-1);
+      return fname.indexOf('STD')===0 ? Math.sqrt(variance) : variance;
+    }
+    if(['STDDEV_POP','STDEVP','VAR_POP'].includes(fname)){
+      if(!nums.length) return null;
+      const mean=nums.reduce((a,b)=>a+b,0)/nums.length;
+      const variance=nums.reduce((a,b)=>a+(b-mean)*(b-mean),0)/nums.length;
+      return fname.indexOf('STD')===0 ? Math.sqrt(variance) : variance;
+    }
   }
-  if(fname==='COALESCE'||fname==='IFNULL'){ for(const a of node.args){ const v=evalExpr(a,ctx,amb,schema); if(v!=null) return v; } return null; }
+  if(fname==='COALESCE'||fname==='IFNULL'||fname==='ISNULL'){ for(const a of node.args){ const v=evalExpr(a,ctx,amb,schema); if(v!=null) return v; } return null; }
+  if(fname==='CONCAT'){ return node.args.map(a=>{ const v=evalExpr(a,ctx,amb,schema); return v==null?'':String(v); }).join(''); }
   if(fname==='UPPER'){ const v=evalExpr(node.args[0],ctx,amb,schema); return v==null?null:String(v).toUpperCase(); }
   if(fname==='LOWER'){ const v=evalExpr(node.args[0],ctx,amb,schema); return v==null?null:String(v).toLowerCase(); }
   if(fname==='ROUND'){ const v=evalExpr(node.args[0],ctx,amb,schema); const d=node.args[1]?evalExpr(node.args[1],ctx,amb,schema):0; return v==null?null:Math.round(v*Math.pow(10,d))/Math.pow(10,d); }
@@ -1093,10 +1413,13 @@ function executeSelect(ast,schema){
   });
   return {columns, rows:finalRows};
 }
-function runSQL(text,schema){
+function runSQL(text,schema,reg){
   const ast=parseSQL(text);
   if(ast.type!=='select') throw new Error('Este comando não é um SELECT.');
-  return executeSelect(ast,schema);
+  const savedReg=CURRENT_REG, savedFrame=CURRENT_FRAME;
+  CURRENT_REG=ensureReg(reg||{}); CURRENT_FRAME=null;
+  try{ return executeSelect(ast,schema); }
+  finally{ CURRENT_REG=savedReg; CURRENT_FRAME=savedFrame; }
 }
 
 /* ============================= EXECUTOR (DDL/DML/DCL/TCL/PROCEDURES) ============================= */
@@ -1105,8 +1428,25 @@ function nextId(table){
   table.rows.forEach(r=>{ if(typeof r[table.pk]==='number' && r[table.pk]>max) max=r[table.pk]; });
   return max+1;
 }
-function execInsert(stmt,schema){
-  const table=getTable(schema,stmt.table);
+function findTriggers(reg,table,timing,event){
+  ensureReg(reg);
+  const key=table.toUpperCase()+'|'+timing+'|'+event;
+  return reg.triggers[key]||[];
+}
+function runTriggerBody(trig,schema,reg,txStack,oldRow,newRow){
+  let rowCtx, amb;
+  if(oldRow && newRow){ rowCtx=mergeCtx(makeCtx('OLD',oldRow),makeCtx('NEW',newRow)); amb=new Set(Object.keys(oldRow)); }
+  else if(newRow){ rowCtx=makeCtx('NEW',newRow); amb=new Set(Object.keys(newRow)); }
+  else { rowCtx=makeCtx('OLD',oldRow); amb=new Set(Object.keys(oldRow)); }
+  const frame={locals:{},cursors:{},handlers:[],row:rowCtx,amb};
+  const saved=CURRENT_FRAME; CURRENT_FRAME=frame;
+  try{ execBlock(trig.body,schema,reg,txStack,frame); }
+  finally{ CURRENT_FRAME=saved; }
+}
+function execInsert(stmt,schema,reg,txStack){
+  const table=getRealTable(schema,stmt.table);
+  const beforeTrigs=findTriggers(reg,stmt.table,'BEFORE','INSERT');
+  const afterTrigs=findTriggers(reg,stmt.table,'AFTER','INSERT');
   stmt.valueRows.forEach(valExprs=>{
     let row={};
     if(stmt.columns){
@@ -1115,22 +1455,26 @@ function execInsert(stmt,schema){
       stmt.columns.forEach((c,i)=>{
         const cU=c.toUpperCase();
         if(!table.columns.includes(cU)) throw new Error('Coluna "'+c+'" não existe em '+stmt.table+'.');
-        row[cU]=evalExpr(valExprs[i],{row:null,group:null},new Set(),schema);
+        row[cU]=evalExpr(valExprs[i],frameCtx(),frameAmb(),schema);
       });
       if(row[table.pk]==null) row[table.pk]=nextId(table);
     } else {
       if(table.columns.length!==valExprs.length) throw new Error('Número de valores não bate com o número de colunas da tabela '+stmt.table+' ('+table.columns.length+').');
-      table.columns.forEach((c,i)=>{ row[c]=evalExpr(valExprs[i],{row:null,group:null},new Set(),schema); });
+      table.columns.forEach((c,i)=>{ row[c]=evalExpr(valExprs[i],frameCtx(),frameAmb(),schema); });
     }
+    beforeTrigs.forEach(trig=>{ runTriggerBody(trig,schema,reg,txStack,null,row); });
     if(row[table.pk]!=null && table.rows.some(r=>valuesEqual(r[table.pk],row[table.pk]))) throw new Error('Violação de chave primária: já existe uma linha com '+table.pk+' = '+row[table.pk]+' em '+stmt.table+'.');
     (table.notNull||[]).forEach(c=>{ if(row[c]==null) throw new Error('A coluna '+c+' não pode ser NULL em '+stmt.table+'.'); });
     (table.unique||[]).forEach(c=>{ if(row[c]!=null && table.rows.some(r=>valuesEqual(r[c],row[c]))) throw new Error('Violação de restrição UNIQUE: já existe uma linha com '+c+' = '+row[c]+' em '+stmt.table+'.'); });
     table.rows.push(row);
+    afterTrigs.forEach(trig=>{ runTriggerBody(trig,schema,reg,txStack,null,row); });
   });
 }
-function execUpdate(stmt,schema){
-  const table=getTable(schema,stmt.table);
+function execUpdate(stmt,schema,reg,txStack){
+  const table=getRealTable(schema,stmt.table);
   const amb=new Set();
+  const beforeTrigs=findTriggers(reg,stmt.table,'BEFORE','UPDATE');
+  const afterTrigs=findTriggers(reg,stmt.table,'AFTER','UPDATE');
   table.rows.forEach(row=>{
     const ctxRow=makeCtx(stmt.table,row);
     if(stmt.where && !evalExpr(stmt.where,{row:ctxRow,group:null},amb,schema)) return;
@@ -1140,17 +1484,23 @@ function execUpdate(stmt,schema){
       if(!table.columns.includes(cU)) throw new Error('Coluna "'+s.col+'" não existe em '+stmt.table+'.');
       newVals[cU]=evalExpr(s.expr,{row:ctxRow,group:null},amb,schema);
     });
-    Object.assign(row,newVals);
+    const oldSnap={...row};
+    const newRow={...row,...newVals};
+    beforeTrigs.forEach(trig=>{ runTriggerBody(trig,schema,reg,txStack,oldSnap,newRow); });
+    Object.assign(row,newRow);
+    afterTrigs.forEach(trig=>{ runTriggerBody(trig,schema,reg,txStack,oldSnap,row); });
   });
 }
-function execDelete(stmt,schema){
-  const table=getTable(schema,stmt.table);
+function execDelete(stmt,schema,reg,txStack){
+  const table=getRealTable(schema,stmt.table);
   const amb=new Set();
-  if(!stmt.where){ table.rows=[]; return; }
-  table.rows=table.rows.filter(row=>{
-    const ctxRow=makeCtx(stmt.table,row);
-    return !evalExpr(stmt.where,{row:ctxRow,group:null},amb,schema);
-  });
+  const beforeTrigs=findTriggers(reg,stmt.table,'BEFORE','DELETE');
+  const afterTrigs=findTriggers(reg,stmt.table,'AFTER','DELETE');
+  const toRemove=stmt.where ? table.rows.filter(row=>evalExpr(stmt.where,{row:makeCtx(stmt.table,row),group:null},amb,schema)) : table.rows.slice();
+  toRemove.forEach(row=>{ beforeTrigs.forEach(trig=>{ runTriggerBody(trig,schema,reg,txStack,row,null); }); });
+  const removeSet=new Set(toRemove);
+  table.rows=table.rows.filter(row=>!removeSet.has(row));
+  toRemove.forEach(row=>{ afterTrigs.forEach(trig=>{ runTriggerBody(trig,schema,reg,txStack,row,null); }); });
 }
 function execCreateTable(stmt,schema){
   const name=stmt.name.toUpperCase();
@@ -1162,14 +1512,14 @@ function execCreateTable(stmt,schema){
   schema[name]={columns,pk:stmt.pk,notNull,unique,types,foreignKeys:stmt.foreignKeys||[],rows:[]};
 }
 function execAlterAddColumn(stmt,schema){
-  const table=getTable(schema,stmt.table); const c=stmt.colName.toUpperCase();
+  const table=getRealTable(schema,stmt.table); const c=stmt.colName.toUpperCase();
   if(table.columns.includes(c)) throw new Error('A coluna '+c+' já existe em '+stmt.table+'.');
   table.columns.push(c); table.types[c]=stmt.typeStr.toUpperCase();
   if(stmt.notNull) table.notNull.push(c);
   table.rows.forEach(r=>r[c]=null);
 }
 function execAlterDropColumn(stmt,schema){
-  const table=getTable(schema,stmt.table); const c=stmt.colName.toUpperCase();
+  const table=getRealTable(schema,stmt.table); const c=stmt.colName.toUpperCase();
   if(!table.columns.includes(c)) throw new Error('A coluna '+c+' não existe em '+stmt.table+'.');
   if(c===table.pk) throw new Error('Não é possível remover a coluna de chave primária ('+c+').');
   table.columns=table.columns.filter(x=>x!==c);
@@ -1179,13 +1529,13 @@ function execAlterDropColumn(stmt,schema){
   table.rows.forEach(r=>delete r[c]);
 }
 function execAlterModifyColumn(stmt,schema){
-  const table=getTable(schema,stmt.table); const c=stmt.colName.toUpperCase();
+  const table=getRealTable(schema,stmt.table); const c=stmt.colName.toUpperCase();
   if(!table.columns.includes(c)) throw new Error('A coluna '+c+' não existe em '+stmt.table+'.');
   table.types[c]=stmt.typeStr.toUpperCase();
 }
 function execAlterAddFk(stmt,schema){
-  const table=getTable(schema,stmt.table);
-  getTable(schema,stmt.refTable);
+  const table=getRealTable(schema,stmt.table);
+  getRealTable(schema,stmt.refTable);
   table.foreignKeys=table.foreignKeys||[];
   table.foreignKeys.push({col:stmt.col.toUpperCase(),refTable:stmt.refTable.toUpperCase(),refCol:stmt.refCol.toUpperCase()});
 }
@@ -1195,7 +1545,7 @@ function execDropTable(stmt,schema){
   delete schema[name];
 }
 function execGrant(stmt,schema){
-  const perm=getTable(schema,'PERMISSAO');
+  const perm=getRealTable(schema,'PERMISSAO');
   stmt.privileges.forEach(priv=>{
     const p=priv.toUpperCase(), u=stmt.user, t=stmt.table.toUpperCase();
     const exists=perm.rows.some(r=>r.USUARIO.toLowerCase()===u.toLowerCase() && r.TABELA===t && r.PRIVILEGIO===p);
@@ -1203,31 +1553,83 @@ function execGrant(stmt,schema){
   });
 }
 function execRevoke(stmt,schema){
-  const perm=getTable(schema,'PERMISSAO');
+  const perm=getRealTable(schema,'PERMISSAO');
   stmt.privileges.forEach(priv=>{
     const p=priv.toUpperCase(), u=stmt.user, t=stmt.table.toUpperCase();
     perm.rows=perm.rows.filter(r=>!(r.USUARIO.toLowerCase()===u.toLowerCase() && r.TABELA===t && r.PRIVILEGIO===p));
   });
 }
-function execCreateProcedure(stmt,schema,procRegistry){ procRegistry[stmt.name.toUpperCase()]=stmt; }
-function execExec(stmt,schema,procRegistry,txStack){
-  const proc=procRegistry[stmt.name.toUpperCase()];
+function execCreateView(stmt,schema,reg){
+  ensureReg(reg);
+  const key=stmt.name.toUpperCase();
+  if(schema[key]) throw new Error('Já existe uma tabela chamada '+stmt.name+'; escolha outro nome para a view.');
+  if(reg.views[key]) throw new Error('A view '+stmt.name+' já existe.');
+  try{ executeSelect(stmt.query,schema); }
+  catch(e){ throw new Error('Erro ao criar a view '+stmt.name+': '+e.message); }
+  reg.views[key]=stmt;
+}
+function execCreateTrigger(stmt,schema,reg){
+  ensureReg(reg);
+  getRealTable(schema,stmt.table);
+  const key=stmt.table.toUpperCase()+'|'+stmt.timing+'|'+stmt.event;
+  reg.triggers[key]=reg.triggers[key]||[];
+  reg.triggers[key].push(stmt);
+}
+function execCreateProcedure(stmt,schema,reg){ ensureReg(reg).procs[stmt.name.toUpperCase()]=stmt; }
+function execExec(stmt,schema,reg,txStack,callerFrame){
+  ensureReg(reg);
+  const proc=reg.procs[stmt.name.toUpperCase()];
   if(!proc) throw new Error('A procedure "'+stmt.name+'" não existe. Ela precisa ser criada com CREATE PROCEDURE antes de ser chamada.');
   if(stmt.args.length!==proc.params.length) throw new Error('A procedure '+stmt.name+' espera '+proc.params.length+' parâmetro(s), mas recebeu '+stmt.args.length+'.');
-  const params={};
-  proc.params.forEach((p,i)=>{ params[p.name]=evalExpr(stmt.args[i],{row:null,group:null},new Set(),schema); });
-  const saved=CURRENT_PARAMS; CURRENT_PARAMS=params;
-  let lastResult=null;
-  try{ proc.body.forEach(bodyStmt=>{ lastResult=execOne(bodyStmt,schema,procRegistry,txStack); }); }
-  finally{ CURRENT_PARAMS=saved; }
-  return lastResult;
+  const argVals=stmt.args.map(a=>evalExpr(a,{row:callerFrame?callerFrame.row:null,group:null},(callerFrame&&callerFrame.amb)||new Set(),schema));
+  const callee=newFrame();
+  proc.params.forEach((p,i)=>{ callee.locals['@'+p.name]=argVals[i]; });
+  const saved=CURRENT_FRAME; CURRENT_FRAME=callee;
+  try{ return execBlock(proc.body,schema,reg,txStack,callee); }
+  finally{ CURRENT_FRAME=saved; }
 }
-function execOne(stmt,schema,procRegistry,txStack){
+function getCursor(frame,name){
+  if(!frame) throw new Error('Cursor usado fora de uma procedure ou trigger.');
+  const key=name.toUpperCase();
+  const cur=frame.cursors[key];
+  if(!cur) throw new Error('Cursor "'+name+'" não foi declarado (use DECLARE ... CURSOR FOR antes).');
+  return cur;
+}
+function applySetTarget(target,val,frame,schema){
+  if(target.kind==='local'){
+    if(!frame) throw new Error('Variável local usada fora de uma procedure/trigger.');
+    frame.locals[target.name.toUpperCase()]=val;
+    return;
+  }
+  if(target.kind==='param'){
+    if(!frame) throw new Error('Variável @'+target.name+' usada fora de uma procedure/trigger.');
+    frame.locals['@'+target.name]=val;
+    return;
+  }
+  if(target.kind==='field'){
+    if(!frame || !frame.row) throw new Error('"'+target.table+'.'+target.name+'" só pode ser usado dentro de um trigger.');
+    const aliasKey=target.table.toUpperCase();
+    const obj=frame.row.byAlias[aliasKey];
+    if(!obj) throw new Error('"'+target.table+'" não existe neste evento de trigger (use NEW ou OLD conforme o evento).');
+    if(aliasKey==='OLD') throw new Error('OLD é somente leitura; para alterar o valor gravado, atribua a NEW.'+target.name+'.');
+    const colKey=target.name.toUpperCase();
+    if(!(colKey in obj)) throw new Error('Coluna "'+target.name+'" não existe.');
+    obj[colKey]=val;
+    if(frame.row.flat) frame.row.flat[colKey]=val;
+    return;
+  }
+}
+function execBlock(stmts,schema,reg,txStack,frame){
+  let last=null;
+  for(const s of stmts){ last=execOne(s,schema,reg,txStack,frame); }
+  return last;
+}
+function execOne(stmt,schema,reg,txStack,frame){
   switch(stmt.type){
     case 'select': return executeSelect(stmt,schema);
-    case 'insert': execInsert(stmt,schema); return null;
-    case 'update': execUpdate(stmt,schema); return null;
-    case 'delete': execDelete(stmt,schema); return null;
+    case 'insert': execInsert(stmt,schema,reg,txStack); return null;
+    case 'update': execUpdate(stmt,schema,reg,txStack); return null;
+    case 'delete': execDelete(stmt,schema,reg,txStack); return null;
     case 'createTable': execCreateTable(stmt,schema); return null;
     case 'alterAddColumn': execAlterAddColumn(stmt,schema); return null;
     case 'alterDropColumn': execAlterDropColumn(stmt,schema); return null;
@@ -1239,17 +1641,94 @@ function execOne(stmt,schema,procRegistry,txStack){
     case 'begin': txStack.push(JSON.parse(JSON.stringify(schema))); return null;
     case 'commit': if(!txStack.length) throw new Error('COMMIT sem uma transação ativa (use BEGIN antes).'); txStack.pop(); return null;
     case 'rollback': { if(!txStack.length) throw new Error('ROLLBACK sem uma transação ativa (use BEGIN antes).'); const snap=txStack.pop(); Object.keys(schema).forEach(k=>delete schema[k]); Object.assign(schema,snap); return null; }
-    case 'createProcedure': execCreateProcedure(stmt,schema,procRegistry); return null;
-    case 'exec': return execExec(stmt,schema,procRegistry,txStack);
+    case 'createProcedure': execCreateProcedure(stmt,schema,reg); return null;
+    case 'createView': execCreateView(stmt,schema,reg); return null;
+    case 'createTrigger': execCreateTrigger(stmt,schema,reg); return null;
+    case 'exec': return execExec(stmt,schema,reg,txStack,frame);
+    case 'declareVar': {
+      if(!frame) throw new Error('DECLARE só pode ser usado dentro de uma procedure ou trigger.');
+      const key=(stmt.isParam?'@':'')+stmt.name.toUpperCase();
+      frame.locals[key]=stmt.defaultExpr ? evalExpr(stmt.defaultExpr,{row:frame.row,group:null},frame.amb||new Set(),schema) : null;
+      return null;
+    }
+    case 'declareCursor': {
+      if(!frame) throw new Error('DECLARE CURSOR só pode ser usado dentro de uma procedure ou trigger.');
+      frame.cursors[stmt.name.toUpperCase()]={query:stmt.query, rows:null, pos:0, open:false};
+      return null;
+    }
+    case 'declareHandler': {
+      if(!frame) throw new Error('DECLARE HANDLER só pode ser usado dentro de uma procedure ou trigger.');
+      frame.handlers.push(stmt);
+      return null;
+    }
+    case 'setLocal': {
+      const ctxBase={row:frame?frame.row:null,group:null};
+      const ambUse=(frame&&frame.amb)||new Set();
+      stmt.assigns.forEach(a=>{
+        const val=evalExpr(a.expr,ctxBase,ambUse,schema);
+        applySetTarget(a.target,val,frame,schema);
+      });
+      return null;
+    }
+    case 'open': {
+      const cur=getCursor(frame,stmt.name);
+      const res=executeSelect(cur.query,schema);
+      cur.cols=res.columns; cur.rows=res.rows; cur.pos=0; cur.open=true;
+      return null;
+    }
+    case 'fetch': {
+      const cur=getCursor(frame,stmt.name);
+      if(!cur.open) throw new Error('Cursor "'+stmt.name+'" não foi aberto (use OPEN antes de FETCH).');
+      if(cur.pos>=cur.rows.length){
+        const handler=(frame.handlers||[]).slice().reverse().find(h=>h.condition==='NOT FOUND');
+        if(!handler) throw new Error('FETCH além do fim do cursor "'+stmt.name+'" — declare um HANDLER FOR NOT FOUND para tratar o fim do cursor.');
+        return execOne(handler.body,schema,reg,txStack,frame);
+      }
+      const row=cur.rows[cur.pos++];
+      if(stmt.targets.length!==row.length) throw new Error('FETCH tem '+stmt.targets.length+' variável(is) de destino, mas a consulta do cursor devolve '+row.length+' coluna(s).');
+      stmt.targets.forEach((t,i)=>{ frame.locals[t.toUpperCase()]=row[i]; });
+      return null;
+    }
+    case 'close': { const cur=getCursor(frame,stmt.name); cur.open=false; return null; }
+    case 'if': {
+      const ctxBase={row:frame?frame.row:null,group:null};
+      const ambUse=(frame&&frame.amb)||new Set();
+      for(const br of stmt.branches){
+        if(evalExpr(br.cond,ctxBase,ambUse,schema)) return execBlock(br.body,schema,reg,txStack,frame);
+      }
+      if(stmt.elseBody) return execBlock(stmt.elseBody,schema,reg,txStack,frame);
+      return null;
+    }
+    case 'while': {
+      const ctxBase={row:frame?frame.row:null,group:null};
+      const ambUse=(frame&&frame.amb)||new Set();
+      let iterations=0;
+      try{
+        while(stmt.cond===null || evalExpr(stmt.cond,ctxBase,ambUse,schema)){
+          if(++iterations>100000) throw new Error('O loop excedeu o limite de iterações (possível loop infinito).');
+          execBlock(stmt.body,schema,reg,txStack,frame);
+        }
+      }catch(e){
+        if(e instanceof LeaveSignal && e.label===stmt.label){ /* fim normal do loop */ }
+        else throw e;
+      }
+      return null;
+    }
+    case 'leave': throw new LeaveSignal(stmt.label);
+    case 'print': { try{ evalExpr(stmt.expr,{row:frame?frame.row:null,group:null},(frame&&frame.amb)||new Set(),schema); }catch(e){} return null; }
     default: throw new Error('Comando não suportado: '+stmt.type);
   }
 }
-function runScript(stmts,schema,procRegistry){
+function runScript(stmts,schema,reg){
+  reg=ensureReg(reg);
   const txStack=[]; let lastResult=null;
-  stmts.forEach(s=>{ lastResult=execOne(s,schema,procRegistry,txStack); });
+  const savedReg=CURRENT_REG, savedFrame=CURRENT_FRAME;
+  CURRENT_REG=reg; CURRENT_FRAME=null;
+  try{ stmts.forEach(s=>{ lastResult=execOne(s,schema,reg,txStack,null); }); }
+  finally{ CURRENT_REG=savedReg; CURRENT_FRAME=savedFrame; }
   return lastResult;
 }
-function runScriptText(text,schema,procRegistry){ return runScript(parseScriptText(text),schema,procRegistry||{}); }
+function runScriptText(text,schema,reg){ return runScript(parseScriptText(text),schema,reg||{}); }
 
 /* ============================= SANDBOX / GRADING ============================= */
 function cloneSchema(schema){ return JSON.parse(JSON.stringify(schema)); }
@@ -1301,6 +1780,7 @@ function schemaShapeEqual(a,b){ return JSON.stringify(a)===JSON.stringify(b); }
 
 function gradeQuery(userText,canonicalText){
   const schema=baseSchema();
+  CURRENT_REG=ensureReg({}); CURRENT_FRAME=null;
   const canAst=parseSQL(canonicalText);
   const expected=executeSelect(canAst,schema);
   let userAst;
@@ -1339,6 +1819,20 @@ function gradeMutation(userText,canonicalText,opts){
   }
   try{ runScript(userStmts,schemaUser,regUser); }
   catch(e){ return {ok:false,message:e.message,userSchema:schemaUser}; }
+  if(opts.viewQuery){
+    let expected,actual;
+    try{
+      CURRENT_REG=ensureReg(regCanon); CURRENT_FRAME=null;
+      expected=executeSelect(parseSQL(opts.viewQuery),schemaCanon);
+    }catch(e){ return {ok:false,systemError:true,message:'Erro no gabarito ao consultar a view (avise o autor): '+e.message}; }
+    try{
+      CURRENT_REG=ensureReg(regUser); CURRENT_FRAME=null;
+      actual=executeSelect(parseSQL(opts.viewQuery),schemaUser);
+    }catch(e){ return {ok:false,message:'Sua view não pôde ser consultada: '+e.message}; }
+    const eRows=expected.rows.map(r=>r.map(normalizeValue)).map(r=>JSON.stringify(r)).sort();
+    const aRows=actual.rows.map(r=>r.map(normalizeValue)).map(r=>JSON.stringify(r)).sort();
+    return {ok:JSON.stringify(eRows)===JSON.stringify(aRows), reason:'rows', userSchema:schemaUser, canonSchema:schemaCanon};
+  }
   if(opts.compareMode==='schema'){
     const a=extractSchemaShape(schemaCanon,opts.watch), b=extractSchemaShape(schemaUser,opts.watch);
     return {ok:schemaShapeEqual(a,b), reason: schemaShapeEqual(a,b)?null:'schema', userSchema:schemaUser, canonSchema:schemaCanon};
@@ -1362,10 +1856,13 @@ function gradeProcedure(userText,canonicalText,testCalls){
     try{ execCreateProcedure(userProcAst,schemaB,regB); }catch(e){ return {ok:false,message:e.message}; }
     const argExprs=call.args.map(v=> v===null? {type:'null'} : (typeof v==='string'? {type:'lit',v,isString:true} : {type:'lit',v}));
     let resA,resB;
-    try{ resA=execExec({type:'exec',name:canonProcAst.name,args:argExprs},schemaA,regA,[]); }
+    const savedRegOuter=CURRENT_REG, savedFrameOuter=CURRENT_FRAME;
+    try{ CURRENT_REG=ensureReg(regA); CURRENT_FRAME=null; resA=execExec({type:'exec',name:canonProcAst.name,args:argExprs},schemaA,regA,[]); }
     catch(e){ return {ok:false,systemError:true,message:'Erro no gabarito ao executar: '+e.message}; }
-    try{ resB=execExec({type:'exec',name:userProcAst.name,args:argExprs},schemaB,regB,[]); }
+    finally{ CURRENT_REG=savedRegOuter; CURRENT_FRAME=savedFrameOuter; }
+    try{ CURRENT_REG=ensureReg(regB); CURRENT_FRAME=null; resB=execExec({type:'exec',name:userProcAst.name,args:argExprs},schemaB,regB,[]); }
     catch(e){ return {ok:false,message:'Erro ao executar sua procedure com os argumentos '+JSON.stringify(call.args)+': '+e.message}; }
+    finally{ CURRENT_REG=savedRegOuter; CURRENT_FRAME=savedFrameOuter; }
     if(call.resultKind==='query'){
       const rowsA=(resA?resA.rows:[]).map(r=>r.map(normalizeValue));
       const rowsB=(resB?resB.rows:[]).map(r=>r.map(normalizeValue));
@@ -1386,6 +1883,8 @@ function gradeProcedure(userText,canonicalText,testCalls){
    mutation: {p, sql, watch:[tabelas], compareMode?, seed?, requireTypes?}
    procedure: {p, sql, testCalls:[{args, watch?|resultKind}]}
 */
+
+
 const CATEGORIES = [
   {id:'dql', title:'DQL — Consultas', emoji:'🔍'},
   {id:'dml', title:'DML — Manipulação de Dados', emoji:'✏️'},
@@ -1699,6 +2198,8 @@ const TOPICS = [
      seed:"INSERT INTO CURSO VALUES (7,'Curso Piloto Descontinuado',10,199.00)"}
   ]}
 ];
+
+
 
 
 /* ============================= SCHEMA DE EXIBIÇÃO ============================= */
@@ -2218,5 +2719,5 @@ updateSoundBtn();
 loadNewQuestion();
 
 </script>
-</body>
-</html>
+
+</body></html>
