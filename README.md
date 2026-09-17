@@ -16,7 +16,7 @@ A correção é feita **pelo resultado**, não pelo texto da consulta: duas resp
 
 ## Funcionalidades
 
-- **22 lições em 6 categorias/fases**, na ordem DQL → DML → DDL → TCL → DCL → Procedures & Cenários Reais, cada uma liberada só depois da anterior ser concluída.
+- **28 lições em 7 categorias/fases**, na ordem DQL → DML → DDL → TCL → DCL → Procedures & Cenários Reais → Avançado (Views, Triggers & Cursores), cada uma liberada só depois da anterior ser concluída.
 - **Motor de SQL próprio**, cobrindo:
   - `SELECT` com `WHERE`, `LIKE`, `IN`, `BETWEEN`, `IS NULL`, `ORDER BY`, `GROUP BY`/`HAVING`, `INNER`/`LEFT JOIN`, agregações (`COUNT`/`SUM`/`AVG`/`MIN`/`MAX`), subconsultas escalares e com `IN`, autorrelacionamento (self-join), `COALESCE`/`IFNULL`/`CONCAT`/`UPPER`/`LOWER`/`ROUND`;
   - **Funções estatísticas**: `STDDEV_SAMP`/`STDDEV_POP`/`VAR_SAMP`/`VAR_POP` (e os apelidos `STDDEV`/`STDEV`/`VARIANCE`), `MEDIAN`, `MODE() WITHIN GROUP (ORDER BY ...)`, `PERCENTILE_CONT(p) WITHIN GROUP (ORDER BY ...)`;

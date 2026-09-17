@@ -215,7 +215,7 @@ table.result td.null{color:var(--faint);font-style:italic;}
     <button class="sound-btn" id="btn-sound" title="Ativar/desativar sons">🔊</button>
     <button class="sound-btn" id="btn-backup" title="Código de backup do progresso">💾</button>
   </div>
-  <p class="tagline">Do SELECT básico a procedures — DDL, DML, DCL e TCL numa jornada só, na base <span class="mono">ESCOLA_SQL</span>.</p>
+  <p class="tagline">Do SELECT básico a views, triggers e cursores — DDL, DML, DCL e TCL numa jornada só, na base <span class="mono">ESCOLA_SQL</span>.</p>
 
   <div class="card backup-card" id="backup-panel" style="display:none;">
     <div class="backup-inner">
@@ -274,7 +274,7 @@ table.result td.null{color:var(--faint);font-style:italic;}
         </div>
       </div>
 
-      <p class="scope-note">22 lições em 6 categorias (DQL, DML, DDL, TCL, DCL, Procedures) — com suporte a views, triggers, cursores, IF/WHILE dentro de procedures, funções estatísticas e consultas ao information_schema.</p>
+      <p class="scope-note">28 lições em 7 categorias (DQL, DML, DDL, TCL, DCL, Procedures, Avançado) — incluindo views, triggers, cursores, IF/WHILE dentro de procedures, funções estatísticas e consultas ao information_schema.</p>
     </div>
   </div>
 </div>
@@ -1891,7 +1891,8 @@ const CATEGORIES = [
   {id:'ddl', title:'DDL — Definição de Dados', emoji:'🏗️'},
   {id:'tcl', title:'TCL — Transações', emoji:'🔄'},
   {id:'dcl', title:'DCL — Controle de Acesso', emoji:'🔐'},
-  {id:'proc', title:'Procedures & Cenários Reais', emoji:'🚀'}
+  {id:'proc', title:'Procedures & Cenários Reais', emoji:'🚀'},
+  {id:'avancado', title:'Avançado — Views, Triggers & Cursores', emoji:'⚙️'}
 ];
 
 const TOPICS = [
@@ -2196,6 +2197,186 @@ const TOPICS = [
     {p:"A diretoria decidiu remover do catálogo qualquer curso que nunca teve nenhuma matrícula (neste banco, isso inclui um curso piloto recém-cadastrado, de id 7, sem matrículas). Remova esses cursos da tabela CURSO usando uma subconsulta.",
      kind:'mutation', sql:"DELETE FROM CURSO WHERE IDCURSO NOT IN (SELECT ID_CURSO FROM MATRICULA)", watch:['CURSO'],
      seed:"INSERT INTO CURSO VALUES (7,'Curso Piloto Descontinuado',10,199.00)"}
+  ]},
+
+/* ======================= AVANÇADO: VIEWS ======================= */
+{id:'views', title:'Views (visões)', category:'avancado', kind:'mutation',
+  hint:'CREATE VIEW nome AS SELECT ...; — a view é uma consulta guardada com um nome, que se comporta como tabela para leitura. Ela não duplica dado: reexecuta a consulta por baixo a cada vez que é lida.',
+  summary:'Uma view encapsula uma consulta (mesmo com JOIN, agregação, filtro) num nome reutilizável. Ela não guarda dados: toda vez que você faz SELECT nela, a consulta original é reexecutada. Neste treinador, views são de leitura (não aceitam INSERT/UPDATE/DELETE) — exatamente como qualquer view real que tenha JOIN, GROUP BY ou DISTINCT.',
+  qs:[
+    {p:"Crie a view VW_ALUNOS_SEM_MENTOR, que mostra o nome de todos os alunos que não têm mentor (ID_MENTOR nulo).",
+     sql:"CREATE VIEW VW_ALUNOS_SEM_MENTOR AS SELECT NOME FROM ALUNO WHERE ID_MENTOR IS NULL",
+     watch:[], requireTypes:['createView'], viewQuery:"SELECT NOME FROM VW_ALUNOS_SEM_MENTOR ORDER BY NOME"},
+    {p:"Crie a view VW_MATRICULAS_DETALHE, juntando ALUNO, MATRICULA e CURSO, mostrando o nome do aluno (ALUNO_NOME) e o nome do curso (CURSO_NOME) de cada matrícula.",
+     sql:"CREATE VIEW VW_MATRICULAS_DETALHE AS SELECT A.NOME AS ALUNO_NOME, C.NOME AS CURSO_NOME FROM MATRICULA M INNER JOIN ALUNO A ON M.ID_ALUNO = A.IDALUNO INNER JOIN CURSO C ON M.ID_CURSO = C.IDCURSO",
+     watch:[], requireTypes:['createView'], viewQuery:"SELECT ALUNO_NOME, CURSO_NOME FROM VW_MATRICULAS_DETALHE ORDER BY ALUNO_NOME, CURSO_NOME"},
+    {p:"Crie a view VW_FATURAMENTO_CURSO, mostrando para cada curso o seu nome (NOME) e quantas matrículas ele tem (QTD_MATRICULAS).",
+     sql:"CREATE VIEW VW_FATURAMENTO_CURSO AS SELECT C.NOME, COUNT(*) AS QTD_MATRICULAS FROM CURSO C INNER JOIN MATRICULA M ON C.IDCURSO = M.ID_CURSO GROUP BY C.NOME",
+     watch:[], requireTypes:['createView'], viewQuery:"SELECT NOME, QTD_MATRICULAS FROM VW_FATURAMENTO_CURSO ORDER BY NOME"},
+    {p:"Crie a view VW_CONTATOS, mostrando o nome de cada aluno e uma coluna CONTATO com o e-mail — exibindo 'sem email' quando o e-mail for nulo.",
+     sql:"CREATE VIEW VW_CONTATOS AS SELECT NOME, COALESCE(EMAIL, 'sem email') AS CONTATO FROM ALUNO",
+     watch:[], requireTypes:['createView'], viewQuery:"SELECT NOME, CONTATO FROM VW_CONTATOS ORDER BY NOME"},
+    {p:"Crie a view VW_CURSOS_POPULARES, mostrando nome do curso (NOME) e quantidade de matrículas (QTD), só para cursos com 3 ou mais matrículas.",
+     sql:"CREATE VIEW VW_CURSOS_POPULARES AS SELECT C.NOME, COUNT(*) AS QTD FROM CURSO C INNER JOIN MATRICULA M ON C.IDCURSO = M.ID_CURSO GROUP BY C.NOME HAVING COUNT(*) >= 3",
+     watch:[], requireTypes:['createView'], viewQuery:"SELECT NOME, QTD FROM VW_CURSOS_POPULARES ORDER BY NOME"},
+    {p:"Crie a view VW_TODOS_CURSOS_QTD, mostrando TODOS os cursos (mesmo os sem nenhuma matrícula) com o nome (NOME) e a quantidade de matrículas (QTD, podendo ser 0).",
+     sql:"CREATE VIEW VW_TODOS_CURSOS_QTD AS SELECT C.NOME, COUNT(M.IDMATRICULA) AS QTD FROM CURSO C LEFT JOIN MATRICULA M ON C.IDCURSO = M.ID_CURSO GROUP BY C.NOME",
+     watch:[], requireTypes:['createView'], viewQuery:"SELECT NOME, QTD FROM VW_TODOS_CURSOS_QTD ORDER BY NOME"},
+    {p:"Crie a view VW_CURSO_ANUAL, mostrando o nome do curso e uma coluna VALOR_ANUAL com o valor multiplicado por 4 (o curso é oferecido 4 vezes por ano).",
+     sql:"CREATE VIEW VW_CURSO_ANUAL AS SELECT NOME, VALOR * 4 AS VALOR_ANUAL FROM CURSO",
+     watch:[], requireTypes:['createView'], viewQuery:"SELECT NOME, VALOR_ANUAL FROM VW_CURSO_ANUAL ORDER BY NOME"},
+    {p:"Crie a view VW_CIDADES_ATENDIDAS, mostrando, sem repetição, todas as cidades presentes em ENDERECO.",
+     sql:"CREATE VIEW VW_CIDADES_ATENDIDAS AS SELECT DISTINCT CIDADE FROM ENDERECO",
+     watch:[], requireTypes:['createView'], viewQuery:"SELECT CIDADE FROM VW_CIDADES_ATENDIDAS ORDER BY CIDADE"}
+  ]},
+
+/* ======================= AVANÇADO: TRIGGERS ======================= */
+{id:'triggers', title:'Triggers (gatilhos)', category:'avancado', kind:'mutation',
+  hint:'CREATE TRIGGER nome {BEFORE|AFTER} {INSERT|UPDATE|DELETE} ON tabela FOR EACH ROW BEGIN ... END — dentro do corpo, use NEW.coluna (valor entrando) e OLD.coluna (valor anterior). Em BEFORE, "SET NEW.coluna = expr" altera o valor antes de gravar.',
+  summary:'Um trigger dispara sozinho quando um INSERT/UPDATE/DELETE acontece na tabela vigiada. BEFORE roda antes de gravar (pode ajustar o valor com SET NEW.coluna); AFTER roda depois (serve para reagir — auditoria, log, atualizar um resumo). NEW só existe em INSERT/UPDATE; OLD só existe em UPDATE/DELETE — usar o que não existe no evento dá erro, de propósito.',
+  qs:[
+    {p:"Crie um trigger chamado TRG_AUDITA_VALOR: depois de um UPDATE em CURSO, se o VALOR mudou (OLD.VALOR <> NEW.VALOR), insira em AUDITORIA_CURSO uma linha com IDAUD = (SELECT COALESCE(MAX(IDAUD),0)+1 FROM AUDITORIA_CURSO), o ID_CURSO, o valor antigo e o novo. Depois, teste alterando o valor do curso de id 2 para 999.",
+     sql:"CREATE TRIGGER TRG_AUDITA_VALOR AFTER UPDATE ON CURSO FOR EACH ROW BEGIN IF OLD.VALOR <> NEW.VALOR THEN INSERT INTO AUDITORIA_CURSO (IDAUD, ID_CURSO, VALOR_ANTIGO, VALOR_NOVO) VALUES ((SELECT COALESCE(MAX(IDAUD),0)+1 FROM AUDITORIA_CURSO), OLD.IDCURSO, OLD.VALOR, NEW.VALOR); END IF; END; UPDATE CURSO SET VALOR = 999 WHERE IDCURSO = 2;",
+     watch:['AUDITORIA_CURSO'], requireTypes:['createTrigger','update'],
+     seed:"CREATE TABLE AUDITORIA_CURSO (IDAUD INT PRIMARY KEY, ID_CURSO INT NOT NULL, VALOR_ANTIGO DECIMAL, VALOR_NOVO DECIMAL)"},
+    {p:"Crie um trigger BEFORE INSERT em CURSO chamado TRG_NOME_MAIUSCULO, que transforma o NOME do curso para maiúsculas antes de gravar (use SET NEW.NOME = UPPER(NEW.NOME)). Teste inserindo o curso (id 50, nome 'devops na prática', carga 10, valor 100).",
+     sql:"CREATE TRIGGER TRG_NOME_MAIUSCULO BEFORE INSERT ON CURSO FOR EACH ROW BEGIN SET NEW.NOME = UPPER(NEW.NOME); END; INSERT INTO CURSO (IDCURSO, NOME, CARGA_HORARIA, VALOR) VALUES (50, 'devops na prática', 10, 100);",
+     watch:['CURSO'], requireTypes:['createTrigger','insert']},
+    {p:"Crie um trigger AFTER DELETE em CURSO chamado TRG_LIXEIRA, que copia o curso removido (IDCURSO, NOME) para a tabela LIXEIRA_CURSO. Teste removendo o curso de id 6.",
+     sql:"CREATE TRIGGER TRG_LIXEIRA AFTER DELETE ON CURSO FOR EACH ROW BEGIN INSERT INTO LIXEIRA_CURSO (IDCURSO, NOME) VALUES (OLD.IDCURSO, OLD.NOME); END; DELETE FROM CURSO WHERE IDCURSO = 6;",
+     watch:['LIXEIRA_CURSO'], requireTypes:['createTrigger','delete'],
+     seed:"CREATE TABLE LIXEIRA_CURSO (IDCURSO INT PRIMARY KEY, NOME VARCHAR(50))"},
+    {p:"Crie um trigger BEFORE UPDATE em CURSO chamado TRG_VALOR_MINIMO, que garante um valor mínimo de 100: se NEW.VALOR ficar menor que 100, ajuste-o (SET NEW.VALOR = 100) antes de gravar. Teste tentando reduzir o valor do curso de id 6 para 50.",
+     sql:"CREATE TRIGGER TRG_VALOR_MINIMO BEFORE UPDATE ON CURSO FOR EACH ROW BEGIN IF NEW.VALOR < 100 THEN SET NEW.VALOR = 100; END IF; END; UPDATE CURSO SET VALOR = 50 WHERE IDCURSO = 6;",
+     watch:['CURSO'], requireTypes:['createTrigger','update']},
+    {p:"A tabela RESUMO_MATRICULAS já existe com o total de matrículas por curso. Crie um trigger AFTER INSERT em MATRICULA chamado TRG_ATUALIZA_RESUMO, que soma 1 ao TOTAL do curso correspondente em RESUMO_MATRICULAS sempre que uma nova matrícula é inserida. Teste matriculando o aluno de id 4 no curso de id 1 (data '2024-06-01', nota nula).",
+     sql:"CREATE TRIGGER TRG_ATUALIZA_RESUMO AFTER INSERT ON MATRICULA FOR EACH ROW BEGIN UPDATE RESUMO_MATRICULAS SET TOTAL = TOTAL + 1 WHERE ID_CURSO = NEW.ID_CURSO; END; INSERT INTO MATRICULA (IDMATRICULA, ID_ALUNO, ID_CURSO, DATA_MATRICULA, NOTA) VALUES (20, 4, 1, '2024-06-01', NULL);",
+     watch:['RESUMO_MATRICULAS'], requireTypes:['createTrigger','insert'],
+     seed:"CREATE TABLE RESUMO_MATRICULAS (ID_CURSO INT PRIMARY KEY, TOTAL INT NOT NULL); INSERT INTO RESUMO_MATRICULAS (ID_CURSO, TOTAL) VALUES (1,7),(2,3),(3,3),(4,3),(5,2),(6,1);"},
+    {p:"Crie um trigger AFTER UPDATE em MATRICULA chamado TRG_AUDITA_NOTA, que insere em AUDITORIA_NOTA (IDAUD via SELECT COALESCE(MAX(IDAUD),0)+1, ID_MATRICULA) sempre que a NOTA mudar de valor. Teste alterando a nota da matrícula de id 1 para 10.",
+     sql:"CREATE TRIGGER TRG_AUDITA_NOTA AFTER UPDATE ON MATRICULA FOR EACH ROW BEGIN IF OLD.NOTA <> NEW.NOTA THEN INSERT INTO AUDITORIA_NOTA (IDAUD, ID_MATRICULA) VALUES ((SELECT COALESCE(MAX(IDAUD),0)+1 FROM AUDITORIA_NOTA), OLD.IDMATRICULA); END IF; END; UPDATE MATRICULA SET NOTA = 10 WHERE IDMATRICULA = 1;",
+     watch:['AUDITORIA_NOTA'], requireTypes:['createTrigger','update'],
+     seed:"CREATE TABLE AUDITORIA_NOTA (IDAUD INT PRIMARY KEY, ID_MATRICULA INT NOT NULL)"},
+    {p:"Nossa tabela ENDERECO não tem exclusão em cascata configurada. Crie um trigger AFTER DELETE em ALUNO chamado TRG_REMOVE_ENDERECO, que remove o endereço do aluno excluído. Teste excluindo o aluno de id 4.",
+     sql:"CREATE TRIGGER TRG_REMOVE_ENDERECO AFTER DELETE ON ALUNO FOR EACH ROW BEGIN DELETE FROM ENDERECO WHERE ID_ALUNO = OLD.IDALUNO; END; DELETE FROM ALUNO WHERE IDALUNO = 4;",
+     watch:['ENDERECO','ALUNO'], requireTypes:['createTrigger','delete']},
+    {p:"Crie um trigger BEFORE INSERT em CURSO chamado TRG_CLASSIFICA_CARGA, que acrescenta ao NOME o sufixo ' [CURTO]' se a carga horária for menor que 20, ' [MEDIO]' se for de 20 a 30 (inclusive), ou ' [LONGO]' se for maior que 30 — usando IF/ELSEIF/ELSE. Teste inserindo o curso (id 60, nome 'Novo Curso', carga 35, valor 500).",
+     sql:"CREATE TRIGGER TRG_CLASSIFICA_CARGA BEFORE INSERT ON CURSO FOR EACH ROW BEGIN IF NEW.CARGA_HORARIA < 20 THEN SET NEW.NOME = CONCAT(NEW.NOME, ' [CURTO]'); ELSEIF NEW.CARGA_HORARIA <= 30 THEN SET NEW.NOME = CONCAT(NEW.NOME, ' [MEDIO]'); ELSE SET NEW.NOME = CONCAT(NEW.NOME, ' [LONGO]'); END IF; END; INSERT INTO CURSO (IDCURSO, NOME, CARGA_HORARIA, VALOR) VALUES (60, 'Novo Curso', 35, 500);",
+     watch:['CURSO'], requireTypes:['createTrigger','insert']}
+  ]},
+
+/* ======================= AVANÇADO: CONTROLE DE FLUXO EM PROCEDURES ======================= */
+{id:'controle-fluxo', title:'IF/ELSE e WHILE em procedures', category:'avancado', kind:'procedure',
+  hint:'IF condição THEN ... ELSEIF condição THEN ... ELSE ... END IF; (estilo MySQL) ou IF condição comando; ELSE comando; (estilo SQL Server, sem THEN). WHILE condição DO ... END WHILE; ou WHILE condição BEGIN ... END (estilo SQL Server).',
+  summary:'Dentro de uma procedure, IF/ELSE decide qual bloco executar segundo uma condição, e WHILE repete um bloco enquanto uma condição for verdadeira. Este motor aceita tanto o estilo MySQL (IF...THEN...END IF, WHILE...DO...END WHILE) quanto o estilo T-SQL (IF sem THEN, WHILE...BEGIN...END) — use DECLARE para variáveis locais e SET para atualizá-las.',
+  qs:[
+    {p:"Crie a procedure REAJUSTA_SE_BARATO(@ID, @NOVO_VALOR) que, se o valor atual do curso @ID for menor que 400, atualiza o valor para @NOVO_VALOR; senão, não faz nada.",
+     sql:"CREATE PROCEDURE REAJUSTA_SE_BARATO (@ID INT, @NOVO_VALOR DECIMAL) AS BEGIN DECLARE v_atual DECIMAL; SET v_atual = (SELECT VALOR FROM CURSO WHERE IDCURSO = @ID); IF v_atual < 400 THEN UPDATE CURSO SET VALOR = @NOVO_VALOR WHERE IDCURSO = @ID; END IF; END",
+     testCalls:[{args:[1,350], watch:['CURSO']},{args:[5,900], watch:['CURSO']}]},
+    {p:"Crie a procedure APLICA_DESCONTO_SE_CARO(@ID, @PERCENTUAL) que reduz o VALOR do curso @ID pelo percentual informado (ex.: 10 para 10%), somente se o valor atual for maior que 400; caso contrário, mantém o valor como está — use IF/ELSE.",
+     sql:"CREATE PROCEDURE APLICA_DESCONTO_SE_CARO (@ID INT, @PERCENTUAL DECIMAL) AS BEGIN DECLARE v_atual DECIMAL; SET v_atual = (SELECT VALOR FROM CURSO WHERE IDCURSO = @ID); IF v_atual > 400 THEN UPDATE CURSO SET VALOR = VALOR * (1 - @PERCENTUAL/100) WHERE IDCURSO = @ID; ELSE UPDATE CURSO SET VALOR = VALOR WHERE IDCURSO = @ID; END IF; END",
+     testCalls:[{args:[5,10], watch:['CURSO']},{args:[1,10], watch:['CURSO']}]},
+    {p:"Crie a procedure REAJUSTA_ATE_ATINGIR(@ID, @TETO) que aumenta o VALOR do curso @ID em 10%, repetidamente num WHILE, até que o valor seja maior ou igual a @TETO.",
+     sql:"CREATE PROCEDURE REAJUSTA_ATE_ATINGIR (@ID INT, @TETO DECIMAL) AS BEGIN DECLARE v_atual DECIMAL; SET v_atual = (SELECT VALOR FROM CURSO WHERE IDCURSO = @ID); WHILE v_atual < @TETO DO UPDATE CURSO SET VALOR = VALOR * 1.1 WHERE IDCURSO = @ID; SET v_atual = (SELECT VALOR FROM CURSO WHERE IDCURSO = @ID); END WHILE; END",
+     testCalls:[{args:[1,400], watch:['CURSO']},{args:[6,300], watch:['CURSO']}]},
+    {p:"Crie a procedure CADASTRA_CURSOS_TESTE(@QTD) que insere @QTD cursos de teste em CURSO usando um WHILE, com IDCURSO começando em 500, nome 'TESTE' seguido do número (ex.: 'TESTE0'), carga horária 1 e valor 1.",
+     sql:"CREATE PROCEDURE CADASTRA_CURSOS_TESTE (@QTD INT) AS BEGIN DECLARE v_i INT; SET v_i = 0; WHILE v_i < @QTD DO INSERT INTO CURSO (IDCURSO, NOME, CARGA_HORARIA, VALOR) VALUES (500 + v_i, CONCAT('TESTE', v_i), 1, 1); SET v_i = v_i + 1; END WHILE; END",
+     testCalls:[{args:[3], watch:['CURSO']},{args:[5], watch:['CURSO']}]},
+    {p:"Crie a procedure ARREDONDA_NOTAS_BAIXAS() que percorre as matrículas de id 1 a 19 com um WHILE (contador manual) e, para cada uma, se a nota for menor que 5, ajusta a nota para 5 — use IF dentro do WHILE.",
+     sql:"CREATE PROCEDURE ARREDONDA_NOTAS_BAIXAS () AS BEGIN DECLARE v_id INT; DECLARE v_nota DECIMAL; SET v_id = 1; WHILE v_id <= 19 DO SET v_nota = (SELECT NOTA FROM MATRICULA WHERE IDMATRICULA = v_id); IF v_nota < 5 THEN UPDATE MATRICULA SET NOTA = 5 WHERE IDMATRICULA = v_id; END IF; SET v_id = v_id + 1; END WHILE; END",
+     testCalls:[{args:[], watch:['MATRICULA']}]},
+    {p:"Crie a procedure MARCA_APROVACAO(@ID_MATRICULA) que atualiza a NOTA da matrícula para 10 se a nota atual for maior ou igual a 7, ou para 0 caso contrário — escreva usando a sintaxe do SQL Server (IF sem THEN).",
+     sql:"CREATE PROCEDURE MARCA_APROVACAO (@ID_MATRICULA INT) AS BEGIN DECLARE @nota DECIMAL; SET @nota = (SELECT NOTA FROM MATRICULA WHERE IDMATRICULA = @ID_MATRICULA); IF @nota >= 7 UPDATE MATRICULA SET NOTA = 10 WHERE IDMATRICULA = @ID_MATRICULA; ELSE UPDATE MATRICULA SET NOTA = 0 WHERE IDMATRICULA = @ID_MATRICULA; END",
+     testCalls:[{args:[1], watch:['MATRICULA']},{args:[3], watch:['MATRICULA']}]},
+    {p:"Crie a procedure CONTA_E_ATUALIZA(@ID_CURSO) que, usando WHILE no estilo T-SQL (com BEGIN/END), aplica 3 reajustes sucessivos de 5% no valor do curso @ID_CURSO.",
+     sql:"CREATE PROCEDURE CONTA_E_ATUALIZA (@ID_CURSO INT) AS BEGIN DECLARE @i INT; SET @i = 0; WHILE @i < 3 BEGIN UPDATE CURSO SET VALOR = VALOR * 1.05 WHERE IDCURSO = @ID_CURSO; SET @i = @i + 1; END END",
+     testCalls:[{args:[1], watch:['CURSO']},{args:[4], watch:['CURSO']}]},
+    {p:"Crie a procedure CLASSIFICA_VALOR(@ID) que, usando IF/ELSEIF/ELSE, ajusta a CARGA_HORARIA do curso @ID: soma 5 se o VALOR for maior que 600; soma 2 se estiver entre 300 e 600 (inclusive); não altera caso contrário.",
+     sql:"CREATE PROCEDURE CLASSIFICA_VALOR (@ID INT) AS BEGIN DECLARE v_valor DECIMAL; SET v_valor = (SELECT VALOR FROM CURSO WHERE IDCURSO = @ID); IF v_valor > 600 THEN UPDATE CURSO SET CARGA_HORARIA = CARGA_HORARIA + 5 WHERE IDCURSO = @ID; ELSEIF v_valor >= 300 THEN UPDATE CURSO SET CARGA_HORARIA = CARGA_HORARIA + 2 WHERE IDCURSO = @ID; ELSE UPDATE CURSO SET CARGA_HORARIA = CARGA_HORARIA WHERE IDCURSO = @ID; END IF; END",
+     testCalls:[{args:[5], watch:['CURSO']},{args:[1], watch:['CURSO']},{args:[6], watch:['CURSO']}]}
+  ]},
+
+/* ======================= AVANÇADO: CURSORES ======================= */
+{id:'cursores', title:'Cursores', category:'avancado', kind:'procedure',
+  hint:'DECLARE var CURSOR FOR SELECT ...; DECLARE CONTINUE HANDLER FOR NOT FOUND SET fim = 1; OPEN cursor; label: LOOP FETCH cursor INTO var1, var2; IF fim = 1 THEN LEAVE label; END IF; ... END LOOP; CLOSE cursor;',
+  summary:'Um cursor percorre o resultado de uma consulta linha por linha, como um laço. O ciclo é sempre: DECLARE (define a consulta), OPEN (executa), FETCH (lê a próxima linha para variáveis), e CLOSE. Sem um HANDLER FOR NOT FOUND, o FETCH que passa do fim do cursor trava — o handler avisa quando não há mais linhas. Na prática, quase sempre uma operação em conjunto (UPDATE/DELETE com WHERE, ou agregação) resolve mais rápido que um cursor — mas cursor é necessário quando cada linha exige uma decisão que não dá para expressar de outro jeito.',
+  qs:[
+    {p:"Crie a procedure REAJUSTA_CURSOS_BAIXOS() que usa um CURSOR para percorrer todos os cursos e, para cada um com valor menor que 400, aumenta o valor em 15%.",
+     sql:"CREATE PROCEDURE REAJUSTA_CURSOS_BAIXOS () AS BEGIN DECLARE v_fim INT DEFAULT 0; DECLARE v_id INT; DECLARE v_valor DECIMAL; DECLARE c1 CURSOR FOR SELECT IDCURSO, VALOR FROM CURSO; DECLARE CONTINUE HANDLER FOR NOT FOUND SET v_fim = 1; OPEN c1; lp: LOOP FETCH c1 INTO v_id, v_valor; IF v_fim = 1 THEN LEAVE lp; END IF; IF v_valor < 400 THEN UPDATE CURSO SET VALOR = VALOR * 1.15 WHERE IDCURSO = v_id; END IF; END LOOP; CLOSE c1; END",
+     testCalls:[{args:[], watch:['CURSO']}]},
+    {p:"Crie a procedure CONTA_APROVADOS(@ID_CURSO) que usa um CURSOR para percorrer as matrículas do curso @ID_CURSO e contar quantas têm nota maior ou igual a 7. Ao final, crie a tabela RESUMO_APROVACAO (ID_CURSO INT PRIMARY KEY, TOTAL_APROVADOS INT) e insira o resultado.",
+     sql:"CREATE PROCEDURE CONTA_APROVADOS (@ID_CURSO INT) AS BEGIN DECLARE v_fim INT DEFAULT 0; DECLARE v_nota DECIMAL; DECLARE v_total INT DEFAULT 0; DECLARE c1 CURSOR FOR SELECT NOTA FROM MATRICULA WHERE ID_CURSO = @ID_CURSO; DECLARE CONTINUE HANDLER FOR NOT FOUND SET v_fim = 1; OPEN c1; lp: LOOP FETCH c1 INTO v_nota; IF v_fim = 1 THEN LEAVE lp; END IF; IF v_nota >= 7 THEN SET v_total = v_total + 1; END IF; END LOOP; CLOSE c1; CREATE TABLE RESUMO_APROVACAO (ID_CURSO INT PRIMARY KEY, TOTAL_APROVADOS INT); INSERT INTO RESUMO_APROVACAO (ID_CURSO, TOTAL_APROVADOS) VALUES (@ID_CURSO, v_total); END",
+     testCalls:[{args:[1], watch:['RESUMO_APROVACAO']},{args:[4], watch:['RESUMO_APROVACAO']}]},
+    {p:"Só para praticar cursores (na vida real, um SUM() seria mais direto): crie a procedure SOMA_VALOR_CURSOS() que usa um CURSOR para somar o VALOR de todos os cursos numa variável, e insere o total na nova tabela TOTAL_CATALOGO (TOTAL DECIMAL).",
+     sql:"CREATE PROCEDURE SOMA_VALOR_CURSOS () AS BEGIN DECLARE v_fim INT DEFAULT 0; DECLARE v_valor DECIMAL; DECLARE v_soma DECIMAL DEFAULT 0; DECLARE c1 CURSOR FOR SELECT VALOR FROM CURSO; DECLARE CONTINUE HANDLER FOR NOT FOUND SET v_fim = 1; OPEN c1; lp: LOOP FETCH c1 INTO v_valor; IF v_fim = 1 THEN LEAVE lp; END IF; SET v_soma = v_soma + v_valor; END LOOP; CLOSE c1; CREATE TABLE TOTAL_CATALOGO (TOTAL DECIMAL); INSERT INTO TOTAL_CATALOGO (TOTAL) VALUES (v_soma); END",
+     testCalls:[{args:[], watch:['TOTAL_CATALOGO']}]},
+    {p:"Crie a procedure LISTA_ALUNOS_CURSOS_CAROS() que usa um CURSOR sobre uma consulta com JOIN (ALUNO, MATRICULA, CURSO) para achar alunos matriculados em cursos com valor maior que 600, inserindo o nome de cada um na nova tabela ALUNOS_CURSOS_CAROS (NOME VARCHAR(50)).",
+     sql:"CREATE PROCEDURE LISTA_ALUNOS_CURSOS_CAROS () AS BEGIN DECLARE v_fim INT DEFAULT 0; DECLARE v_nome VARCHAR(50); DECLARE c1 CURSOR FOR SELECT A.NOME FROM ALUNO A INNER JOIN MATRICULA M ON M.ID_ALUNO = A.IDALUNO INNER JOIN CURSO C ON C.IDCURSO = M.ID_CURSO WHERE C.VALOR > 600; DECLARE CONTINUE HANDLER FOR NOT FOUND SET v_fim = 1; CREATE TABLE ALUNOS_CURSOS_CAROS (NOME VARCHAR(50)); OPEN c1; lp: LOOP FETCH c1 INTO v_nome; IF v_fim = 1 THEN LEAVE lp; END IF; INSERT INTO ALUNOS_CURSOS_CAROS (NOME) VALUES (v_nome); END LOOP; CLOSE c1; END",
+     testCalls:[{args:[], watch:['ALUNOS_CURSOS_CAROS']}]},
+    {p:"Crie a procedure CONTA_FAIXAS_NOTA() que usa um CURSOR para percorrer as notas de MATRICULA (ignorando nulas) e contar quantas são BAIXA (< 6), MEDIA (6 até menos de 8) ou ALTA (>= 8). Ao final, crie a tabela FAIXAS_NOTA (FAIXA VARCHAR(10), QTD INT) com as três linhas.",
+     sql:"CREATE PROCEDURE CONTA_FAIXAS_NOTA () AS BEGIN DECLARE v_fim INT DEFAULT 0; DECLARE v_nota DECIMAL; DECLARE v_baixa INT DEFAULT 0; DECLARE v_media INT DEFAULT 0; DECLARE v_alta INT DEFAULT 0; DECLARE c1 CURSOR FOR SELECT NOTA FROM MATRICULA; DECLARE CONTINUE HANDLER FOR NOT FOUND SET v_fim = 1; OPEN c1; lp: LOOP FETCH c1 INTO v_nota; IF v_fim = 1 THEN LEAVE lp; END IF; IF v_nota IS NOT NULL THEN IF v_nota < 6 THEN SET v_baixa = v_baixa + 1; ELSEIF v_nota < 8 THEN SET v_media = v_media + 1; ELSE SET v_alta = v_alta + 1; END IF; END IF; END LOOP; CLOSE c1; CREATE TABLE FAIXAS_NOTA (FAIXA VARCHAR(10), QTD INT); INSERT INTO FAIXAS_NOTA (FAIXA, QTD) VALUES ('BAIXA', v_baixa); INSERT INTO FAIXAS_NOTA (FAIXA, QTD) VALUES ('MEDIA', v_media); INSERT INTO FAIXAS_NOTA (FAIXA, QTD) VALUES ('ALTA', v_alta); END",
+     testCalls:[{args:[], watch:['FAIXAS_NOTA']}]},
+    {p:"Só para praticar (MIN() seria o jeito direto): crie a procedure ACHA_CURSO_MAIS_BARATO() que usa um CURSOR para achar o curso de menor valor, inserindo o nome dele na nova tabela CURSO_MAIS_BARATO (NOME VARCHAR(50)).",
+     sql:"CREATE PROCEDURE ACHA_CURSO_MAIS_BARATO () AS BEGIN DECLARE v_fim INT DEFAULT 0; DECLARE v_nome VARCHAR(50); DECLARE v_valor DECIMAL; DECLARE v_melhor_nome VARCHAR(50); DECLARE v_melhor_valor DECIMAL; DECLARE c1 CURSOR FOR SELECT NOME, VALOR FROM CURSO; DECLARE CONTINUE HANDLER FOR NOT FOUND SET v_fim = 1; OPEN c1; lp: LOOP FETCH c1 INTO v_nome, v_valor; IF v_fim = 1 THEN LEAVE lp; END IF; IF v_melhor_valor IS NULL OR v_valor < v_melhor_valor THEN SET v_melhor_valor = v_valor; SET v_melhor_nome = v_nome; END IF; END LOOP; CLOSE c1; CREATE TABLE CURSO_MAIS_BARATO (NOME VARCHAR(50)); INSERT INTO CURSO_MAIS_BARATO (NOME) VALUES (v_melhor_nome); END",
+     testCalls:[{args:[], watch:['CURSO_MAIS_BARATO']}]},
+    {p:"Pratique cursores: crie a procedure REAJUSTA_CARO(@PERCENTUAL) que aumenta o VALOR de todos os cursos com valor maior que 500 pelo percentual informado — implemente usando um CURSOR, mesmo sabendo que um UPDATE direto seria mais rápido (as duas formas são aceitas, pois a correção é pelo resultado final).",
+     sql:"CREATE PROCEDURE REAJUSTA_CARO (@PERCENTUAL DECIMAL) AS BEGIN UPDATE CURSO SET VALOR = VALOR * (1 + @PERCENTUAL/100) WHERE VALOR > 500; END",
+     testCalls:[{args:[10], watch:['CURSO']},{args:[-5], watch:['CURSO']}]},
+    {p:"Pratique cursores: crie a procedure REMOVE_MATRICULAS_SEM_NOTA() que remove todas as matrículas cuja nota é nula — implemente com um CURSOR decidindo linha a linha quais remover (um DELETE direto com WHERE também seria aceito, pois a correção é pelo resultado final).",
+     sql:"CREATE PROCEDURE REMOVE_MATRICULAS_SEM_NOTA () AS BEGIN DELETE FROM MATRICULA WHERE NOTA IS NULL; END",
+     testCalls:[{args:[], watch:['MATRICULA']}]}
+  ]},
+
+/* ======================= AVANÇADO: FUNÇÕES ESTATÍSTICAS ======================= */
+{id:'estatisticas', title:'Funções estatísticas', category:'avancado', kind:'query',
+  hint:'STDDEV_SAMP/VAR_SAMP dividem por N-1 (amostra); STDDEV_POP/VAR_POP dividem por N (população). MEDIAN(coluna) ou PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY coluna) dão a mediana. MODE() WITHIN GROUP (ORDER BY coluna) dá o valor mais frequente.',
+  summary:'Média sem uma medida de dispersão ao lado esconde mais do que revela. Desvio padrão e variância medem o quanto os valores se espalham; amostral (SAMP) divide por N-1, populacional (POP) divide por N — escolher o errado não dá erro, só devolve o número errado. Mediana é resistente a valores extremos (outliers); moda é o valor mais frequente.',
+  qs:[
+    {p:"Calcule o desvio padrão amostral (STDDEV_SAMP) do valor dos cursos, arredondado para 2 casas decimais, numa coluna chamada DESVIO.",
+     sql:"SELECT ROUND(STDDEV_SAMP(VALOR), 2) AS DESVIO FROM CURSO"},
+    {p:"Calcule a variância amostral (VAR_SAMP) da carga horária dos cursos, arredondada para 2 casas decimais, numa coluna chamada VARIANCIA.",
+     sql:"SELECT ROUND(VAR_SAMP(CARGA_HORARIA), 2) AS VARIANCIA FROM CURSO"},
+    {p:"Calcule a mediana (MEDIAN) das notas de MATRICULA, numa coluna chamada MEDIANA.",
+     sql:"SELECT MEDIAN(NOTA) AS MEDIANA FROM MATRICULA"},
+    {p:"Encontre a moda (o sexo mais frequente) entre os alunos, usando MODE() WITHIN GROUP (ORDER BY SEXO), numa coluna chamada MODA.",
+     sql:"SELECT MODE() WITHIN GROUP (ORDER BY SEXO) AS MODA FROM ALUNO"},
+    {p:"Calcule a mediana do valor dos cursos usando PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY VALOR), numa coluna chamada P50.",
+     sql:"SELECT PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY VALOR) AS P50 FROM CURSO"},
+    {p:"Para cada curso com pelo menos 2 matrículas, mostre o nome do curso (NOME), a média das notas (MEDIA) e o desvio padrão amostral das notas (DESVIO), ambos arredondados para 2 casas decimais.",
+     sql:"SELECT C.NOME, ROUND(AVG(M.NOTA),2) AS MEDIA, ROUND(STDDEV_SAMP(M.NOTA),2) AS DESVIO FROM CURSO C INNER JOIN MATRICULA M ON C.IDCURSO = M.ID_CURSO GROUP BY C.NOME HAVING COUNT(*) >= 2"},
+    {p:"Calcule o coeficiente de variação do valor dos cursos em porcentagem (100 vezes o desvio padrão amostral dividido pela média), arredondado para 1 casa decimal, numa coluna chamada CV.",
+     sql:"SELECT ROUND(100 * STDDEV_SAMP(VALOR) / AVG(VALOR), 1) AS CV FROM CURSO"},
+    {p:"Calcule a amplitude do valor dos cursos (o maior valor menos o menor), numa coluna chamada AMPLITUDE.",
+     sql:"SELECT MAX(VALOR) - MIN(VALOR) AS AMPLITUDE FROM CURSO"},
+    {p:"Mostre, numa única consulta, o desvio padrão amostral (AMOSTRAL) e o populacional (POPULACIONAL) da carga horária dos cursos, ambos arredondados para 2 casas decimais.",
+     sql:"SELECT ROUND(STDDEV_SAMP(CARGA_HORARIA),2) AS AMOSTRAL, ROUND(STDDEV_POP(CARGA_HORARIA),2) AS POPULACIONAL FROM CURSO"},
+    {p:"Para cada mentor, mostre o nome do mentor e a mediana (MEDIANA) das notas de todos os alunos que ele mentora, cruzando ALUNO com ele mesmo (autorrelacionamento) e depois com MATRICULA.",
+     sql:"SELECT A2.NOME, MEDIAN(M.NOTA) AS MEDIANA FROM ALUNO A1 INNER JOIN ALUNO A2 ON A1.ID_MENTOR = A2.IDALUNO INNER JOIN MATRICULA M ON A1.IDALUNO = M.ID_ALUNO GROUP BY A2.NOME"}
+  ]},
+
+/* ======================= AVANÇADO: DICIONÁRIO DE DADOS ======================= */
+{id:'dicionario-dados', title:'Dicionário de dados (INFORMATION_SCHEMA)', category:'avancado', kind:'mixed',
+  hint:'INFORMATION_SCHEMA.TABLES (TABLE_NAME), INFORMATION_SCHEMA.COLUMNS (TABLE_NAME, COLUMN_NAME, DATA_TYPE, IS_NULLABLE, COLUMN_KEY), INFORMATION_SCHEMA.TABLE_CONSTRAINTS (CONSTRAINT_NAME, CONSTRAINT_TYPE), INFORMATION_SCHEMA.KEY_COLUMN_USAGE (para chaves estrangeiras).',
+  summary:'O banco se descreve: tabelas de sistema como o INFORMATION_SCHEMA guardam metadados consultáveis por SQL — quais tabelas existem, quais colunas cada uma tem, quais são chave primária, quais constraints foram criadas. Isso transforma "vou olhar a documentação" em "vou perguntar ao próprio banco", que nunca desatualiza.',
+  qs:[
+    {p:"Liste o nome de todas as tabelas do banco, em ordem alfabética, consultando INFORMATION_SCHEMA.TABLES.",
+     kind:'query', sql:"SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES ORDER BY TABLE_NAME"},
+    {p:"Liste o nome de todas as colunas da tabela CURSO, em ordem alfabética, consultando INFORMATION_SCHEMA.COLUMNS.",
+     kind:'query', sql:"SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'CURSO' ORDER BY COLUMN_NAME"},
+    {p:"Liste o nome da tabela e o nome da coluna de todas as chaves primárias do banco (COLUMN_KEY = 'PRI' em INFORMATION_SCHEMA.COLUMNS), em ordem por nome de tabela.",
+     kind:'query', sql:"SELECT TABLE_NAME, COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE COLUMN_KEY = 'PRI' ORDER BY TABLE_NAME"},
+    {p:"Liste as colunas da tabela ALUNO que não aceitam valor nulo (IS_NULLABLE = 'NO'), em ordem alfabética.",
+     kind:'query', sql:"SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'ALUNO' AND IS_NULLABLE = 'NO' ORDER BY COLUMN_NAME"},
+    {p:"Mostre o nome de cada tabela e quantas colunas ela tem (QTD_COLUNAS), em ordem alfabética por tabela.",
+     kind:'query', sql:"SELECT TABLE_NAME, COUNT(*) AS QTD_COLUNAS FROM INFORMATION_SCHEMA.COLUMNS GROUP BY TABLE_NAME ORDER BY TABLE_NAME"},
+    {p:"Liste o nome e o tipo de todas as constraints da tabela CURSO, usando INFORMATION_SCHEMA.TABLE_CONSTRAINTS.",
+     kind:'query', sql:"SELECT CONSTRAINT_NAME, CONSTRAINT_TYPE FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS WHERE TABLE_NAME = 'CURSO'"},
+    {p:"Adicione uma chave estrangeira na tabela ENDERECO (coluna ID_ALUNO) referenciando ALUNO(IDALUNO), chamada FK_ENDERECO_ALUNO. Depois, confirme que ela aparece no dicionário de dados (INFORMATION_SCHEMA.KEY_COLUMN_USAGE).",
+     kind:'mutation', sql:"ALTER TABLE ENDERECO ADD CONSTRAINT FK_ENDERECO_ALUNO FOREIGN KEY(ID_ALUNO) REFERENCES ALUNO(IDALUNO)",
+     watch:[], requireTypes:['alterAddFk'], viewQuery:"SELECT TABLE_NAME, COLUMN_NAME, REFERENCED_TABLE_NAME, REFERENCED_COLUMN_NAME FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE"},
+    {p:"Crie a tabela CATEGORIA (IDCATEGORIA como chave primária, NOME VARCHAR(30) não nulo e único). Depois, confirme no dicionário de dados quais constraints foram criadas para essa tabela.",
+     kind:'mutation', sql:"CREATE TABLE CATEGORIA (IDCATEGORIA INT PRIMARY KEY, NOME VARCHAR(30) NOT NULL UNIQUE)",
+     watch:[], requireTypes:['createTable'], viewQuery:"SELECT CONSTRAINT_NAME, CONSTRAINT_TYPE FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS WHERE TABLE_NAME = 'CATEGORIA'"}
   ]}
 ];
 
@@ -2291,7 +2472,7 @@ function decideNextQuestion(){
 function gradeCurrentQuestion(userText){
   const q = currentQ;
   if(q.kind==='query') return gradeQuery(userText, q.sql);
-  if(q.kind==='mutation') return gradeMutation(userText, q.sql, {watch:q.watch, compareMode:q.compareMode, seed:q.seed, requireTypes:q.requireTypes});
+  if(q.kind==='mutation') return gradeMutation(userText, q.sql, {watch:q.watch, compareMode:q.compareMode, seed:q.seed, requireTypes:q.requireTypes, viewQuery:q.viewQuery});
   if(q.kind==='procedure') return gradeProcedure(userText, q.sql, q.testCalls);
   throw new Error('Tipo de questão desconhecido: '+q.kind);
 }
@@ -2513,8 +2694,19 @@ function renderRunResult(g){
     el('result-title').textContent='Seu resultado ('+res.rows.length+' linha'+(res.rows.length===1?'':'s')+')';
     el('result-body').innerHTML=renderResultTable(res);
   } else if(currentQ.kind==='mutation'){
-    el('result-title').textContent='Estado final dos dados após sua resposta';
-    el('result-body').innerHTML=renderMutationState(g.userSchema, currentQ.watch, currentQ.compareMode);
+    if(currentQ.viewQuery){
+      el('result-title').textContent='Consulta feita na sua view após a resposta';
+      try{
+        const schema=baseSchema(); const reg={};
+        if(currentQ.seed) runScriptText(currentQ.seed, schema, reg);
+        runScriptText(el('sql-input').value, schema, reg);
+        const res=runSQL(currentQ.viewQuery, schema, reg);
+        el('result-body').innerHTML=renderResultTable(res);
+      }catch(e){ el('result-body').innerHTML='<p class="empty-note">(não foi possível reconsultar a view: '+escapeHtml(e.message)+')</p>'; }
+    } else {
+      el('result-title').textContent='Estado final dos dados após sua resposta';
+      el('result-body').innerHTML=renderMutationState(g.userSchema, currentQ.watch, currentQ.compareMode);
+    }
   } else if(currentQ.kind==='procedure'){
     el('result-title').textContent = g.ok? 'Sua procedure passou em todos os testes' : 'Sua procedure não passou em todos os testes';
     el('result-body').innerHTML='<p class="empty-note">Use "Executar" para testar manualmente sua procedure com um exemplo de chamada.</p>';
@@ -2630,8 +2822,14 @@ function handleRun(){
       const schema=baseSchema(); const reg={};
       if(currentQ.seed) runScriptText(currentQ.seed, schema, reg);
       runScriptText(text, schema, reg);
-      el('result-title').textContent='Estado final dos dados após executar sua resposta';
-      el('result-body').innerHTML=renderMutationState(schema, currentQ.watch, currentQ.compareMode);
+      if(currentQ.viewQuery){
+        const res=runSQL(currentQ.viewQuery, schema, reg);
+        el('result-title').textContent='Consulta feita na sua view';
+        el('result-body').innerHTML=renderResultTable(res);
+      } else {
+        el('result-title').textContent='Estado final dos dados após executar sua resposta';
+        el('result-body').innerHTML=renderMutationState(schema, currentQ.watch, currentQ.compareMode);
+      }
     } else if(currentQ.kind==='procedure'){
       const schema=baseSchema(); const reg={};
       const stmts=parseScriptText(text);
